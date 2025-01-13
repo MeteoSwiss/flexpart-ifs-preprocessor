@@ -22,7 +22,7 @@ numpy = "^1.26.4"
 xarray = ">=2023.4.1"
 eccodes = "~1.5"
 urllib3 = ">=1.25.4,<1.27"
-meteodatalab = { url = "https://github.com/MeteoSwiss/meteodata-lab/archive/f4a106a579f8011921429a9b124c17b3d640f387.zip" }
+meteodatalab = { url = "https://github.com/MeteoSwiss/meteodata-lab/archive/239df34a59ca9fdc7801aa298f3c3feffcdb22c5.zip" }
 pyfdb = { url = "https://github.com/ecmwf/pyfdb/archive/refs/tags/0.0.3.zip" }
 
 

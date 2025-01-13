@@ -177,7 +177,7 @@ class DB:
                         -- Skip constants file (key ends in '11')
                         -- to avoid duplicate cur.step
                         -- as constants file also has prev.step = 0
-                        AND (prev_step != 0 OR RIGHT(prev.key, 2) != '11')
+                        AND (prev_step != 0 OR SUBSTR(prev.key, -2, 2) != '11')
 
         WHERE
             cur.forecast_ref_time = ? AND
