@@ -27,35 +27,32 @@ class Processing:
             logger.exception("Failed to sort and download files.")
             raise
 
-        temp_files, to_process, _ = result
-
-        input_dir = Path(temp_files[0].name).parent
+        temp_files, to_process = result
+        input_dir = Path(temp_files[0]).parent
 
         with tempfile.TemporaryDirectory() as temp_output_dir:
             output_dir = Path(temp_output_dir)
 
-            # Run preprocessing with separate output dir
             run_preprocessing(input_dir=str(input_dir), output_dir=str(output_dir))
 
-            # Upload all output files
             for file_path in output_dir.iterdir():
                 if file_path.is_file():
                     S3client().upload_file(str(file_path))
 
         # Clean up temp input files
         for temp_file in temp_files:
-            temp_file.close()
             try:
-                os.unlink(temp_file.name)
+                os.unlink(temp_file)
             except FileNotFoundError:
-                logger.warning(f"Tried to delete missing file: {temp_file.name}")
+                logger.warning(f"Tried to delete missing file: {temp_file}")
+
 
         # Mark DB as processed
         DB().update_item_as_processed(to_process["row_id"])
 
     def _sort_and_download_files(
         self, file_objs: list[FileObject]
-    ) -> tuple[list[str], FileObject, FileObject] | None:
+    ) -> tuple[list[str], FileObject] | None:
         """Sort file objects, validate, and select files for processing."""
         try:
             sorted_files = sorted(file_objs, key=lambda x: int(x["step"]), reverse=True)
@@ -71,7 +68,7 @@ class Processing:
             files_to_download = [to_process, prev_file] + init_files
 
             tempfiles = self._download_files(files_to_download)
-            return tempfiles, to_process, prev_file
+            return tempfiles, to_process
 
         except Exception as e:
             logger.exception(f"Sorting and validation failed: {e}")
