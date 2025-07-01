@@ -21,8 +21,6 @@ COPY flexprep /src/flexprep
 
 WORKDIR /src
 
-RUN mkdir -p /src/db
-
 # Stage 3: Tester
 FROM base AS tester
 
@@ -59,8 +57,7 @@ ENV HTTP_PROXY= \
 # Create a non-root user and set up permissions
 RUN useradd --create-home flexprep-user
 
-# Ensure the home directory has the correct permissions
-RUN chown -R flexprep-user:flexprep-user /src
+RUN mkdir -p /src/db && chown -R flexprep-user:flexprep-user /src
 
 # Switch to the non-root user
 USER flexprep-user
