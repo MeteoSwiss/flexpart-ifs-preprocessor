@@ -37,7 +37,8 @@ class Processing:
 
             for file_path in output_dir.iterdir():
                 if file_path.is_file():
-                    S3client().upload_file(str(file_path))
+                    key = file_path.name
+                    self.s3_client.upload_file(str(file_path), key)
 
         # Clean up temp input files
         for temp_file in temp_files:
