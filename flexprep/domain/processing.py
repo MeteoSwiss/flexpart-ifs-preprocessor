@@ -1,4 +1,5 @@
 import logging
+from datetime import timedelta
 import os
 import tempfile
 import typing
@@ -35,8 +36,16 @@ class Processing:
 
             run_preprocessing(input_dir=str(input_dir), output_dir=str(output_dir))
 
+            # Compute expected output filename for the processed step
+            step_to_process = file_objs[-1]['step']
+            forecast_ref_time = file_objs[-1]['forecast_ref_time']
+            lead_time = forecast_ref_time + timedelta(hours=step_to_process)
+            lead_time_str = lead_time.strftime("%Y%m%d%H")
+            expected_filename = f"dispf{lead_time_str}"
+
+            # Upload only the matching output file
             for file_path in output_dir.iterdir():
-                if file_path.is_file():
+                if file_path.is_file() and file_path.name == expected_filename:
                     key = file_path.name
                     self.s3_client.upload_file(str(file_path), key)
 
