@@ -1,17 +1,14 @@
 import logging
+from datetime import timedelta
 import os
 import tempfile
 import typing
-from datetime import datetime as dt
-from datetime import timedelta
+from pathlib import Path
 
-import meteodatalab.operators.flexpart as flx
-from meteodatalab import config, data_source, grib_decoder, metadata
+from preflexpart import run_preprocessing
 
 from flexprep.domain.db_utils import DB
-from flexprep.domain.flexpart_utils import CONSTANTS, INPUT_FIELDS, prepare_output
 from flexprep.domain.s3_utils import S3client
-from flexprep.domain.validation_utils import validate_dataset
 
 logger = logging.getLogger(__name__)
 
@@ -31,24 +28,41 @@ class Processing:
             logger.exception("Failed to sort and download files.")
             raise
 
-        temp_files, to_process, prev_file = result
+        temp_files, to_process = result
+        input_dir = Path(temp_files[0]).parent
 
-        ds_in = self._load_and_validate_data(temp_files, to_process, prev_file)
-        if ds_in is None:
-            logger.exception("Failed to load and validate data.")
-            raise
+        with tempfile.TemporaryDirectory() as temp_output_dir:
+            output_dir = Path(temp_output_dir)
 
-        ds_out = self._apply_flexpart(ds_in)
-        self._save_output(
-            ds_out,
-            to_process["forecast_ref_time"],
-            int(to_process["step"]),
-            to_process["row_id"],
-        )
+            run_preprocessing(input_dir=str(input_dir), output_dir=str(output_dir))
+
+            # Compute expected output filename for the processed step
+            step_to_process = file_objs[-1]['step']
+            forecast_ref_time = file_objs[-1]['forecast_ref_time']
+            lead_time = forecast_ref_time + timedelta(hours=step_to_process)
+            lead_time_str = lead_time.strftime("%Y%m%d%H")
+            expected_filename = f"dispf{lead_time_str}"
+
+            # Upload only the matching output file
+            for file_path in output_dir.iterdir():
+                if file_path.is_file() and file_path.name == expected_filename:
+                    key = file_path.name
+                    self.s3_client.upload_file(str(file_path), key)
+
+        # Clean up temp input files
+        for temp_file in temp_files:
+            try:
+                os.unlink(temp_file)
+            except FileNotFoundError:
+                logger.warning(f"Tried to delete missing file: {temp_file}")
+
+
+        # Mark DB as processed
+        DB().update_item_as_processed(to_process["row_id"])
 
     def _sort_and_download_files(
         self, file_objs: list[FileObject]
-    ) -> tuple[list[str], FileObject, FileObject] | None:
+    ) -> tuple[list[str], FileObject] | None:
         """Sort file objects, validate, and select files for processing."""
         try:
             sorted_files = sorted(file_objs, key=lambda x: int(x["step"]), reverse=True)
@@ -64,7 +78,7 @@ class Processing:
             files_to_download = [to_process, prev_file] + init_files
 
             tempfiles = self._download_files(files_to_download)
-            return tempfiles, to_process, prev_file
+            return tempfiles, to_process
 
         except Exception as e:
             logger.exception(f"Sorting and validation failed: {e}")
@@ -79,112 +93,3 @@ class Processing:
         except Exception as e:
             logger.exception(f"File download failed: {e}")
             raise RuntimeError("An error occurred while downloading files.") from e
-
-    def _load_and_validate_data(
-        self, temp_files: list[str], to_process: FileObject, prev_file: FileObject
-    ) -> typing.Any:
-        """Load and validate data from downloaded files."""
-        request = {"param": list(CONSTANTS | INPUT_FIELDS)}
-        try:
-            with config.set_values(data_scope="ifs"):
-                source = data_source.FileDataSource(datafiles=temp_files)
-                ds_in = grib_decoder.load(source, request)
-                validate_dataset(
-                    ds_in,
-                    request["param"],
-                    to_process["forecast_ref_time"],
-                    int(to_process["step"]),
-                    int(prev_file["step"]),
-                )
-                ds_in |= metadata.extract_pv(ds_in["u"].message)
-
-            return ds_in
-
-        except Exception as e:
-            logger.exception(f"Data loading and validation failed: {e}")
-            raise
-
-        finally:
-            for temp_file in temp_files:
-                os.unlink(temp_file)
-
-    def _apply_flexpart(self, ds_in: typing.Any) -> typing.Any:
-        """Apply flexpart pre-processing and return processed data structure."""
-        ds_out = flx.fflexpart(ds_in)
-        prepare_output(ds_out, ds_in, INPUT_FIELDS, CONSTANTS)
-        return ds_out
-
-    def _save_output(
-        self,
-        ds_out: typing.Any,
-        forecast_ref_time: dt,
-        step_to_process: int,
-        row_id: int,
-    ) -> None:
-        """Save processed data to a temporary file and upload to output-S3."""
-        try:
-            lead_time = forecast_ref_time + timedelta(hours=step_to_process)
-            lead_time_str = lead_time.strftime("%Y%m%d%H")
-            key = f"dispf{lead_time_str}"
-
-            ref_keys = "editionNumber", "productDefinitionTemplateNumber"
-            ref_values = 2, 0
-            ref = next(
-                field
-                for field in ds_out.values()
-                if metadata.extract_keys(field.message, ref_keys) == ref_values
-            )
-
-            with tempfile.NamedTemporaryFile(
-                suffix=key,
-            ) as output_file:
-                for name, field in ds_out.items():
-                    if field.isnull().all():
-                        logging.info(f"Ignoring field {field} - only NaN values")
-                        continue
-
-                    if metadata.extract_keys(field.message, "editionNumber") == 1:
-                        # Variables in this set have undergone statistical
-                        # processing (e.g., aggregation), so the
-                        # productDefinitionTemplateNumber must change
-                        # (e.g., to include typeOfStatisticalProcessing).
-                        if name in set(["lsp", "sshf", "ewss", "nsss", "cp", "ssr"]):
-                            md = metadata.override(
-                                ref.message,
-                                productDefinitionTemplateNumber=8,
-                                shortName=field.parameter["shortName"],
-                            )
-                        else:
-                            # No statistical processing;
-                            # only override the shortName
-                            md = metadata.override(
-                                ref.message,
-                                shortName=field.parameter["shortName"],
-                            )
-                        # Set level to 0 for surface fields, which are identified
-                        # by "typeOfFirstFixedSurface" = 1
-                        if (
-                            metadata.extract_keys(
-                                md["message"], "typeOfFirstFixedSurface"
-                            )
-                            == 1
-                        ):
-                            md = metadata.override(
-                                md["message"],
-                                shortName=field.parameter["shortName"],
-                                level=0,
-                            )
-
-                        field.attrs = md
-                    grib_decoder.save(field, output_file)
-                logger.info("Writing GRIB fields to file completed.")
-
-                # Upload the file to S3
-                S3client().upload_file(output_file.name, key=key)
-
-            # Mark the item as processed if everything was successful
-            DB().update_item_as_processed(row_id)
-
-        except Exception as e:
-            logger.exception(f"Failed to save or upload output file: {e}")
-            raise

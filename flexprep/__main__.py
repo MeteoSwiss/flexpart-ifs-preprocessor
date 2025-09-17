@@ -59,7 +59,7 @@ def insert_forecast_in_db(ifs_forecast_obj, db):
         sys.exit(1)
 
 
-def process_forecast(args, db):
+def get_processable_forecasts(args, db):
     """Insert forecast in DB and find processable steps."""
     # Create the forecast object and insert it into the DB
     ifs_forecast_obj = create_forecast_object_from_args(args)
@@ -78,6 +78,6 @@ if __name__ == "__main__":
     )
 
     db = DB()
-    processable_steps = process_forecast(args, db)
+    processable_steps = get_processable_forecasts(args, db)
     for to_process in processable_steps:
         Processing().process(to_process)
