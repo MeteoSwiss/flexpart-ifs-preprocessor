@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# flexprep documentation build configuration file, created by
+# documentation build configuration file, created by
 # sphinx-quickstart on Fri Jun  9 13:47:02 2017.
 #
 # This file is execfile()d with the current directory set to its
@@ -52,7 +52,7 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = "flexprep"
+project = "flexpart-ifs-preprocessor"
 copyright = "2024, MeteoSwiss"
 author = "Nina Burgdorfer"
 
@@ -103,7 +103,7 @@ html_static_path = ["_static"]
 # -- Options for HTMLHelp output ---------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "flexprep/doc"
+htmlhelp_basename = "flexpart-ifs-preprocessor/doc"
 
 # -- Options for LaTeX output ------------------------------------------
 
@@ -128,8 +128,8 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "flexprep.tex",
-        "flexprep Documentation",
+        "flexpart-ifs-preprocessor.tex",
+        "flexpart-ifs-preprocessor Documentation",
         "Nina Burgdorfer",
         "manual",
     ),
@@ -142,8 +142,8 @@ latex_documents = [
 man_pages = [
     (
         master_doc,
-        "flexprep",
-        "flexprep Documentation",
+        "flexpart-ifs-preprocessor",
+        "flexpart-ifs-preprocessor Documentation",
         [author],
         1,
     )
@@ -157,10 +157,10 @@ man_pages = [
 texinfo_documents = [
     (
         master_doc,
-        "flexprep",
-        "flexprep Documentation",
+        "flexpart-ifs-preprocessor",
+        "flexpart-ifs-preprocessor Documentation",
         author,
-        "flexprep",
+        "flexpart-ifs-preprocessor",
         "processing",
         "Miscellaneous",
     ),
@@ -173,7 +173,7 @@ napoleon_use_param = False
 add_module_names = False
 
 # autoapi module configuration
-autoapi_dirs = ["../flexprep"]
+autoapi_dirs = ["../flexpart-ifs-preprocessor"]
 autoapi_options = [
     "members",
     "undoc-members",

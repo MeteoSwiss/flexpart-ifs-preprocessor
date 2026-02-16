@@ -3,7 +3,7 @@ from io import StringIO
 
 import pytest
 
-from flexprep.domain.processing import Processing
+from flexpart_ifs_preprocessor.domain.processing import Processing
 
 
 @pytest.fixture

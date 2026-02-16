@@ -1,5 +1,7 @@
 # Stage 1: Builder
 FROM dockerhub.apps.cp.meteoswiss.ch/mch/python/builder:latest as builder
+ARG VERSION
+LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
 COPY poetry.lock pyproject.toml /src/
 
@@ -9,6 +11,9 @@ RUN cd /src \
 
 # Stage 2: Base Image
 FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.11:latest-slim AS base
+ARG VERSION
+LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
+ENV VERSION=$VERSION
 
 COPY --from=builder /src/requirements.txt /src/requirements.txt
 
@@ -23,6 +28,8 @@ WORKDIR /src
 
 # Stage 3: Tester
 FROM base AS tester
+ARG VERSION
+LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
 COPY --from=builder /src/requirements_dev.txt /src/requirements_dev.txt
 RUN pip install -r /src/requirements_dev.txt
@@ -42,24 +49,14 @@ CMD ["sphinx-build", "doc", "doc/_build"]
 
 # Stage 5: Runner
 FROM base AS runner
-
 ARG VERSION
-ENV VERSION=$VERSION
+LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
-# Unset proxy for use outside MCH
-ENV HTTP_PROXY= \
-   http_proxy= \
-   HTTPS_PROXY= \
-   https_proxy= \
-   NO_PROXY= \
-   no_proxy=
+RUN mkdir -p /src/db && chown -R 1001:1001 /src
 
-# Create a non-root user and set up permissions
-RUN useradd --create-home flexprep-user
+# For running outside of OpenShift, we want to make sure that the container is run without root privileges
+# uid 1001 is defined in the base-container-images for this purpose
+USER 1001
 
-RUN mkdir -p /src/db && chown -R flexprep-user:flexprep-user /src
-
-# Switch to the non-root user
-USER flexprep-user
-
-ENTRYPOINT ["python", "-m", "flexprep"]
+ENTRYPOINT ["python", "-m", "flexpart_ifs_preprocessor"]
+CMD []

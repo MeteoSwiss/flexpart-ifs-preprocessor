@@ -4,9 +4,9 @@ logging:
   # formatter: json
   formatter: "standard"
   child_log_levels:
-    mch_python_commons: DEBUG
+    mchpy: INFO
 main:
-  app_name: FlexPrep
+  app_name: Flexpart-IFS-Preprocessor
   db_path: /src/db/sqlite3-db
   s3_buckets:
     input:
