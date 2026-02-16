@@ -1,13 +1,12 @@
 """ Initializations """
-
 import os
 
-from mch_python_commons.audit import logger
+from mchpy.audit import logger, http_audit
+from flexpart_ifs_preprocessor.config.settings import JobSettings
 
-from flexprep.config.service_settings import ServiceSettings
-
-CONFIG = ServiceSettings(
-    "settings.yaml", os.path.join(os.path.dirname(__file__), "config")
+CONFIG = JobSettings(
+    settings_file_names='settings.yaml',
+    settings_dirname=os.path.join(os.path.dirname(__file__), 'config')
 )
 
 # Configure logger
