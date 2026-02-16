@@ -22,7 +22,7 @@ RUN apt-get -yqq update && apt-get install -yqq wget libeccodes-dev
 RUN cd /src \
     && pip install -r requirements.txt
 
-COPY flexprep /src/flexprep
+COPY flexpart_ifs_preprocessor /src/flexpart_ifs_preprocessor
 
 WORKDIR /src
 
