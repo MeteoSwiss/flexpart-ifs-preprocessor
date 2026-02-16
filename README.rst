@@ -1,7 +1,7 @@
 flexpart-ifs-preprocessor
 ========
 
-Container application which pre-processes IFS data for use with `Flexpart <https://www.flexpart.eu/>`_, a Lagrangian particle dispersion model. The flexprep library (https://gitlab.phaidra.org/flexpart/flexprep) which itself relies on ECMWF's earthkit-data is used for the GRIB data processing.
+Container application which pre-processes IFS data for use with `Flexpart <https://www.flexpart.eu/>`_, a Lagrangian particle dispersion model. The `flexprep <https://gitlab.phaidra.org/flexpart/flexprep>`_ library which itself relies on ECMWF's earthkit-data is used for the GRIB data processing.
 
 Use at EWC
 ---------------

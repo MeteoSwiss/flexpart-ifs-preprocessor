@@ -5,7 +5,9 @@ import tempfile
 import typing
 from pathlib import Path
 
-from flexprep import run_preprocessing
+from flexprep.io_grib import write_grib
+from flexprep.preprocessing import preprocess
+from flexprep.sources.local import load_grib
 
 from flexpart_ifs_preprocessor.domain.db_utils import DB
 from flexpart_ifs_preprocessor.domain.s3_utils import S3client
