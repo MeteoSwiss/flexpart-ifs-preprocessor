@@ -5,10 +5,10 @@ import tempfile
 import typing
 from pathlib import Path
 
-from preflexpart import run_preprocessing
+from flexprep import run_preprocessing
 
-from flexprep.domain.db_utils import DB
-from flexprep.domain.s3_utils import S3client
+from flexpart_ifs_preprocessor.domain.db_utils import DB
+from flexpart_ifs_preprocessor.domain.s3_utils import S3client
 
 logger = logging.getLogger(__name__)
 

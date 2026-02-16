@@ -1,4 +1,4 @@
-flexprep documentation
+flexpart-ifs-preprocessor documentation
 ================================================
 
 processing

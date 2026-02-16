@@ -6,9 +6,9 @@ import sys
 from datetime import datetime as dt
 from pathlib import Path
 
-from flexprep.domain.data_model import IFSForecast
-from flexprep.domain.db_utils import DB
-from flexprep.domain.processing import Processing
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecast
+from flexpart_ifs_preprocessor.domain.db_utils import DB
+from flexpart_ifs_preprocessor.domain.processing import Processing
 
 logger = logging.getLogger(__name__)
 

@@ -3,8 +3,8 @@ import sqlite3
 import typing
 from datetime import datetime as dt
 
-from flexprep import CONFIG
-from flexprep.domain.data_model import IFSForecast
+from flexpart_ifs_preprocessor import CONFIG
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecast
 
 logger = logging.getLogger(__name__)
 

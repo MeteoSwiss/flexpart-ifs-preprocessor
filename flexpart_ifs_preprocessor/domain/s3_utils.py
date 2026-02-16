@@ -8,7 +8,7 @@ from boto3.s3.transfer import TransferConfig
 from botocore.client import BaseClient
 from botocore.exceptions import ClientError
 
-from flexprep import CONFIG
+from flexpart_ifs_preprocessor import CONFIG
 
 logger = logging.getLogger(__name__)
 
