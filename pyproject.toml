@@ -1,16 +1,20 @@
+[tool.poetry]
+package-mode = false
+name = "flexpart-ifs-preprocessor"
+version = "1.0.0"
+description = "Preprocesses IFS data for use in Flexpart"
+license = "BSD-3-Clause"
+authors = [
+    "Nina Burgdorfer <nina.burgdorfer@meteoswiss.ch>",
+    "Victoria Cherkas <victoria.cherkas@meteoswiss.ch>"
+    ]
+readme = "README.rst"
+include = ["HISTORY.rst"]
+
 [[tool.poetry.source]]
 name = "meteoswiss"
 url = "https://hub.meteoswiss.ch/nexus/repository/python-all/simple"
 priority = "default"
-
-
-[tool.poetry]
-name = "flexprep"
-version = "1.0.0"
-description = "processing"
-authors = ["Nina Burgdorfer <nina.burgdorfer@meteoswiss.ch>"]
-readme = "README.rst"
-include = ["HISTORY.rst"]
 
 [tool.poetry.dependencies]
 python = "~3.11"
@@ -21,8 +25,8 @@ jinja2 = ">=3.1.1"
 numpy = "^1.26.4"
 xarray = ">=2023.4.1"
 eccodes = ">=1.7"
-urllib3 = ">=1.25.4,<1.27" 
-preflexpart = "^0.1.1"
+urllib3 = ">=1.25.4,<1.27"
+flexprep = "^0.1.3"
 
 [tool.poetry.dev-dependencies]
 black = "^24.4.2"
