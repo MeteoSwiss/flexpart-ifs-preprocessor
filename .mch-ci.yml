@@ -1,0 +1,100 @@
+default:
+  - build:
+      - checkGivenSemanticVersion:
+          - checkSemanticVersion:
+      - getSemanticVersion:
+          - gitCalculateSemanticVersion:
+      - getImageName:
+          - containerConstructImageName:
+      - artifacts:
+          - containerBuildImage:
+              imageName: ${var.containerImageName}-tester
+              imageTag: ${var.semanticVersion}
+              target: tester
+              extraArgs:
+                - --build-arg
+                - VERSION=${var.semanticVersion}
+          - containerBuildImage:
+              imageName: ${var.containerImageName}
+              imageTag: ${var.semanticVersion}
+              target: runner
+              extraArgs:
+                - --build-arg
+                - VERSION=${var.semanticVersion}
+              pullAlways: false
+      - docs:
+          - script: mkdir -p doc/_build
+          - pythonContainerDocs:
+              imageName: ${var.containerImageName}-tester
+              imageTag: ${var.semanticVersion}
+              pullAlways: false
+              packageManager: ''
+              removeLocalImage: false
+              extraArgs:
+                - -e
+                - BUILD_ID=${var.buildId}
+  - test:
+      - unit:
+          - pythonContainerTest:
+              imageName: ${var.containerImageName}-tester
+              imageTag: ${var.semanticVersion}
+              pullAlways: false
+              packageManager: ''
+              removeLocalImage: false
+      - lint:
+          - pythonContainerLint:
+              imageName: ${var.containerImageName}-tester
+              imageTag: ${var.semanticVersion}
+              pullAlways: false
+              packageManager: ''
+              removeLocalImage: false
+          - pythonContainerTypeCheck:
+              imageName: ${var.containerImageName}-tester
+              imageTag: ${var.semanticVersion}
+              pullAlways: false
+              packageManager: ''
+              removeLocalImage: false
+  - publish:
+      - artifacts:
+          - containerPublishImage:
+              imageName: ${var.containerImageName}
+              imageTag: ${var.semanticVersion}
+      - docs:
+          - openshiftPublishDocs:
+              docSrc: doc/_build/
+              docType: python
+  - clean:
+      - images:
+          cleanupImages:
+            targets:
+              - image://${var.containerImageName}:${var.semanticVersion}
+              - label://ch.meteoswiss.project:${var.project}-${var.semanticVersion}
+
+# Alternative setup for installing and testing the service locally using the system's Python environment.
+local:
+  - build:
+      - install:
+          - pythonLocalInstall:
+      - docs:
+          - pythonLocalDocs:
+      - format:
+          - pythonLocalFormat:
+              inPlace: true
+  - test:
+      - unit:
+          - pythonLocalTest:
+      - lint:
+          - pythonLocalLint:
+          - pythonLocalTypeCheck:
+  - run:
+      - main:
+          - pythonLocalRun:
+              commands: flexpart-ifs-preprocessor greeting "the greeting command"
+
+variables:
+  solution: flexpart-ifs
+  project: flexpart-ifs-preprocessor
+  notifyOnNightlyFailure: victoria.cherkas@meteoswiss.ch
+  semanticVersion: 0.0.0  # is overwritten in Jenkins
+  buildId: n/a # is overwritten in Jenkins
+  containerImageName: docker-intern-nexus.meteoswiss.ch/flexpart-ifs/flexpart-ifs-preprocessor

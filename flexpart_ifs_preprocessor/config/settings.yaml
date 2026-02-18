@@ -4,17 +4,17 @@ logging:
   # formatter: json
   formatter: "standard"
   child_log_levels:
-    mch_python_commons: DEBUG
+    mchpy: INFO
 main:
-  app_name: FlexPrep
+  app_name: Flexpart-IFS-Preprocessor
   db_path: /src/db/sqlite3-db
   s3_buckets:
     input:
       endpoint_url: https://object-store.os-api.cci1.ecmwf.int
-      name: flexpart-input
+      name: ifs-model-data
     output:
       endpoint_url: https://object-store.os-api.cci1.ecmwf.int
-      name: flexprep-output
+      name: flexpart-input
   time_settings:
     tincr: 1
     tstart: 0

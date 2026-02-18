@@ -1,6 +1,7 @@
-from mch_python_commons.audit.logger import LoggingSettings
-from mch_python_commons.config.base_settings import BaseServiceSettings
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+
+from mchpy.audit.logger import LoggingSettings
+from mchpy.config.base_settings import BaseServiceSettings
 
 
 class S3Bucket(BaseModel):
@@ -19,15 +20,13 @@ class TimeSettings(BaseModel):
 
 
 class AppSettings(BaseModel):
+    model_config = ConfigDict(validate_assignment=True)
+
     app_name: str
     db_path: str
     s3_buckets: S3Buckets
     time_settings: TimeSettings
 
-
-class ServiceSettings(BaseServiceSettings):
+class JobSettings(BaseServiceSettings):
     logging: LoggingSettings
     main: AppSettings
-
-    class Config:
-        env_prefix = "SVC__"  # Shortenend prefix
