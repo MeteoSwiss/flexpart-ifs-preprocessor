@@ -1,18 +1,9 @@
-flexpart-ifs-preprocessor documentation
+flexpart-ifs-preprocessor Documentation
 ================================================
-
-processing
 
 .. toctree::
    :maxdepth: 2
    :caption: Contents:
 
    readme
-   autoapi/index
-   history
-
-Indices and tables
-==================
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
+   changelog
