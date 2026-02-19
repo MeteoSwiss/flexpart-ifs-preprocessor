@@ -204,21 +204,6 @@ pipeline {
                 }
             }
         }
-
-        stage('Publish Docs') {
-            // we must publish the documentation if building from main or from a tag
-            when { anyOf { branch "main"; expression { env.TAG_NAME } } }
-            steps {
-                script {
-                    echo "---- PUBLISHING DOCUMENTATION ----"
-                    withCredentials([string(credentialsId: 'documentation-main-prod-token', variable: 'DOC_TOKEN')]) {
-                        sh """
-                            mchbuild -s deploymentEnvironment=prod -s docVersion=${Globals.docVersion} publish.docs
-                        """
-                    }
-                }
-            }
-        }
     }
 
     post {
