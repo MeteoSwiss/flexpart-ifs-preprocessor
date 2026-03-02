@@ -6,4 +6,4 @@ flexpart-ifs-preprocessor Documentation
    :caption: Contents:
 
    readme
-   changelog
+   autoapi/index
