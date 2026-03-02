@@ -14,16 +14,11 @@ from flexpart_ifs_preprocessor.domain.data_model import InputDataAggregatorEvent
 
 logger = logging.getLogger(__name__)
 
-
-_SOURCE_ROLE_ARN = os.environ['SOURCE_ROLE_ARN']
-_SOURCE_S3_BUCKET_ARN = os.environ['SOURCE_S3_BUCKET_ARN']
-
-_TARGET_S3_BUCKET_NAME = os.environ['TARGET_S3_BUCKET_NAME']
-
 def download_file(file: IFSForecastFile, target_dir: Path) -> None:
     sts_client = boto3.client('sts')
     assumed_role = sts_client.assume_role(
-        RoleArn=_SOURCE_ROLE_ARN, RoleSessionName=f'product_publisher_{str(uuid.uuid4())}' # TODO check this RoleSessionName
+        RoleArn=os.environ['SOURCE_ROLE_ARN'],
+        RoleSessionName=f'product_publisher_{str(uuid.uuid4())}' # TODO check this RoleSessionName
     )
     credentials = assumed_role['Credentials']
     target_s3_client = boto3.client(
@@ -43,7 +38,7 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
 
     # download the file from S3 bucket
     target_s3_client.download_file(
-        _SOURCE_S3_BUCKET_ARN,
+        os.environ['SOURCE_S3_BUCKET_ARN'],
         file.object_key,
         target_path
     )
@@ -52,5 +47,5 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
 
 def upload_to_s3(file_path: Path, object_key: str) -> None:
     s3_client = boto3.client('s3')
-    s3_client.upload_file(str(file_path), _TARGET_S3_BUCKET_NAME, object_key)
-    logger.info(f"Uploaded {file_path} to s3://{_TARGET_S3_BUCKET_NAME}/{object_key}")
+    s3_client.upload_file(str(file_path), os.environ['TARGET_S3_BUCKET_NAME'], object_key)
+    logger.info(f"Uploaded {file_path} to s3://{os.environ['TARGET_S3_BUCKET_NAME']}/{object_key}")
