@@ -1,83 +1,50 @@
 """Pre-Process IFS HRES data as input to Flexpart."""
 
-import argparse
+import json
 import logging
 import sys
-from datetime import datetime as dt
+import base64
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 
-from flexpart_ifs_preprocessor.domain.data_model import IFSForecast
-from flexpart_ifs_preprocessor.domain.db_utils import DB
-from flexpart_ifs_preprocessor.domain.processing import Processing
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, InputDataAggregatorEvent
+from flexpart_ifs_preprocessor.domain.db_utils import write_product_index, get_steps_to_process, update_product_index_processed
+from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
+from flexpart_ifs_preprocessor.domain.s3_utils import upload_to_s3
 
 logger = logging.getLogger(__name__)
 
 
-def parse_arguments():
-    """Parse and return command-line arguments."""
-    parser = argparse.ArgumentParser(description="Parse metadata of new file received")
-    parser.add_argument("--step", type=str, required=True, help="Step argument")
-    parser.add_argument(
-        "--date", type=str, required=True, help="Date argument (yyyymmdd)"
-    )
-    parser.add_argument("--time", type=str, required=True, help="Time argument (HH)")
-    parser.add_argument("--location", type=str, required=True, help="Location argument")
+def lambda_handler(event, _):
+    input_data_aggregator_events = _parse_event_records(event)
 
-    return parser.parse_args()
+    for input_data_aggregator_event in input_data_aggregator_events:
+        logger.info('input_data_aggregator_event.object_key: %s', input_data_aggregator_event.object_key)
+        logger.info('input_data_aggregator_event.filename: %s', input_data_aggregator_event.filename)
+        logger.info('input_data_aggregator_event.forecast_ref_time: %s', input_data_aggregator_event.forecast_ref_time)
+        logger.info('input_data_aggregator_event.step: %s', input_data_aggregator_event.step)
 
+        write_product_index(input_data_aggregator_event)
 
-def create_forecast_object_from_args(args):
-    """Create an IFSForecast object based on the parsed arguments."""
-    try:
-        forecast_ref_time_str = f"{args.date}{int(args.time):02d}00"
-        forecast_ref_time = dt.strptime(forecast_ref_time_str, "%Y%m%d%H%M")
-        return IFSForecast(
-            row_id=None,
-            forecast_ref_time=forecast_ref_time,
-            step=int(args.step),
-            key=Path(args.location).name,
-            processed=False,
-        )
-    except ValueError as ve:
-        logger.error(f"Invalid date or time format: {ve}")
-        sys.exit(1)
-    except Exception as e:
-        logger.error(f"Unexpected error while creating forecast object: {e}")
-        sys.exit(1)
+        processable_steps, step_zero_files = get_steps_to_process(input_data_aggregator_event.forecast_ref_time)
+        for file, prev_file in processable_steps:
+            run_preprocessing(file, prev_file, step_zero_files)
+
+            update_product_index_processed(file.object_key, file.forecast_ref_time)
 
 
-def insert_forecast_in_db(ifs_forecast_obj, db):
-    """Insert an IFSForecast object into the database."""
-    try:
-        db.insert_item(ifs_forecast_obj)
-        logger.info(
-            f"Successfully inserted item ({ifs_forecast_obj.forecast_ref_time}, "
-            f"Step: {ifs_forecast_obj.step}, Key: {ifs_forecast_obj.key})"
-        )
-    except Exception as e:
-        logger.error(f"Failed to insert item into the database: {e}")
-        sys.exit(1)
+def _kafka_event_to_input_data_aggregator_event(kafka_event) -> InputDataAggregatorEvent | None:
+    data = json.loads(base64.b64decode(kafka_event['value']))
+
+    return InputDataAggregatorEvent(data)
 
 
-def get_processable_forecasts(args, db):
-    """Insert forecast in DB and find processable steps."""
-    # Create the forecast object and insert it into the DB
-    ifs_forecast_obj = create_forecast_object_from_args(args)
-    insert_forecast_in_db(ifs_forecast_obj, db)
+def _parse_event_records(event) -> list[InputDataAggregatorEvent]:
+    input_data_aggregator_events = []
 
-    # Get the processable steps
-    processable_steps = db.get_processable_steps(ifs_forecast_obj.forecast_ref_time)
-    return processable_steps
+    for _, kafka_events in event['records'].items():
+        for kafka_event in kafka_events:
+            input_data_aggregator_events.append(_kafka_event_to_input_data_aggregator_event(kafka_event))
 
-
-if __name__ == "__main__":
-    args = parse_arguments()
-    logger.info(
-        f"Notification received for file - Step: {args.step}, Date: {args.date}, "
-        f"Time: {args.time}, Location: {args.location}"
-    )
-
-    db = DB()
-    processable_steps = get_processable_forecasts(args, db)
-    for to_process in processable_steps:
-        Processing().process(to_process)
+    return input_data_aggregator_events

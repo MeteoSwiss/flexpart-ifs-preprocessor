@@ -1,7 +1,7 @@
 """ Initializations """
 import os
 
-from mchpy.audit import logger, http_audit
+from mchpy.audit import logger
 from flexpart_ifs_preprocessor.config.settings import JobSettings
 
 CONFIG = JobSettings(

@@ -9,10 +9,56 @@ from flexprep.io_grib import write_grib
 from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
 
-from flexpart_ifs_preprocessor.domain.db_utils import DB
-from flexpart_ifs_preprocessor.domain.s3_utils import S3client
+from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
 
 logger = logging.getLogger(__name__)
+
+
+def run_preprocessing(input_file: IFSForecastFile, previous_file: IFSForecastFile, step_zero_files: list[IFSForecastFile]) -> None:
+
+    dir = Path.home() / "data"
+
+    # Download the files, skipping any that already exist in the temp directory
+    logger.info(f"Downloading main file for processing: {input_file.object_key}")
+    for file in [input_file, previous_file] + step_zero_files:
+        download_file(file, dir)
+
+    # Load raw fields
+    logger.info("Loading GRIB source: %s", dir / input_file.filename)
+
+    raw = load_grib([
+        dir / input_file.filename,
+        dir / step_zero_files[0].filename,
+        dir / step_zero_files[1].filename])
+
+    if not raw:
+        logger.error("No fields loaded - aborting.")
+        raise ValueError("No fields loaded from GRIB files.")
+
+    logger.info("Loaded fields: %s", ", ".join(sorted(raw.keys())))
+
+    # Preprocess (rates to per-hour/per-second, omega, etc.)
+    processed = preprocess(raw)
+    logger.info("Prepared fields: %s", ", ".join(sorted(processed.keys())))
+
+    # Write FLEXPART-ready GRIB2 (one file per forecast step)
+    logger.info("Writing GRIB2 files to %s ...", dir)
+    paths = write_grib(processed, output_dir=dir, suffix="-out.grib")
+    for path in paths:
+        logger.info("Finished writing processed output at: %s", path.name)
+
+        # TODO: add metadata to the object key if needed
+        # TODO: rename the file if needed, e.g. to match the expected output filename for the step
+        upload_to_s3(path, path.name)
+        logger.info(f"Uploaded file to S3: {path.name}")
+
+
+
+
+
+
+
 
 
 class Processing:
@@ -85,13 +131,3 @@ class Processing:
         except Exception as e:
             logger.exception(f"Sorting and validation failed: {e}")
             return None
-
-    def _download_files(self, files_to_download: list[FileObject]) -> list[str]:
-        """Download files from S3 based on the file objects."""
-        try:
-            return [
-                self.s3_client.download_file(file_obj) for file_obj in files_to_download
-            ]
-        except Exception as e:
-            logger.exception(f"File download failed: {e}")
-            raise RuntimeError("An error occurred while downloading files.") from e

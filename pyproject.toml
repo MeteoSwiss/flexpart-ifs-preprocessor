@@ -1,7 +1,7 @@
 [tool.poetry]
 package-mode = false
 name = "flexpart-ifs-preprocessor"
-version = "1.0.0"
+version = "2.0.0"
 description = "Preprocesses IFS data for use in Flexpart"
 license = "BSD-3-Clause"
 authors = [
