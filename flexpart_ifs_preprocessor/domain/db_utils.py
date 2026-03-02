@@ -1,5 +1,4 @@
 import logging
-import typing
 import os
 from datetime import datetime, UTC
 
@@ -12,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 db_client = boto3.resource('dynamodb')
 
-def write_product_index(input_data_aggregator_event: InputDataAggregatorEvent):
+def write_product_index(input_data_aggregator_event: InputDataAggregatorEvent) -> None:
 
     # Adding created_at parameter for tracking files longevity
     creation_timestamp = int(datetime.now(UTC).timestamp())
@@ -43,7 +42,7 @@ def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSFor
     pending_items = [item for item in all_items if item['Status'] == 'PENDING']
     step_zero_items = [dynamodb_item_to_ifs_forecast_file(item) for item in all_items if item['LeadTime'] == 0]
 
-    items_to_process: tuple[IFSForecastFile, IFSForecastFile] = []
+    items_to_process = []
 
     logger.info(f"Queried DynamoDB for forecast_ref_time={forecast_ref_time}. Found {len(all_items)} item(s).")
 
@@ -82,7 +81,7 @@ def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
         processed=item['Status'] == 'PROCESSED'
     )
 
-def update_product_index_processed(object_key: str, reference_time: datetime):
+def update_product_index_processed(object_key: str, reference_time: datetime) -> None:
     processed_timestamp = int(datetime.now(UTC).timestamp())
 
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])

@@ -1,16 +1,11 @@
 import logging
 import os
-import typing
 from pathlib import Path
 import uuid
 
 import boto3
-from boto3.s3.transfer import TransferConfig
-from botocore.client import BaseClient
-from botocore.exceptions import ClientError
 
-from flexpart_ifs_preprocessor import CONFIG
-from flexpart_ifs_preprocessor.domain.data_model import InputDataAggregatorEvent, IFSForecastFile
+from flexpart_ifs_preprocessor.domain.data_model import  IFSForecastFile
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +28,7 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
     target_path = target_dir / file.filename
 
     if target_path.exists():
-        logger.debug(f"File already exists, skipping download: {target_path}")
+        logger.debug("File already exists, skipping download: %s", target_path)
         return
 
     # download the file from S3 bucket
@@ -48,4 +43,4 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
 def upload_to_s3(file_path: Path, object_key: str) -> None:
     s3_client = boto3.client('s3')
     s3_client.upload_file(str(file_path), os.environ['TARGET_S3_BUCKET_NAME'], object_key)
-    logger.info(f"Uploaded {file_path} to s3://{os.environ['TARGET_S3_BUCKET_NAME']}/{object_key}")
+    logger.info("Uploaded %s to s3://%s/%s",  file_path, os.environ['TARGET_S3_BUCKET_NAME'], object_key)

@@ -2,21 +2,20 @@
 
 import json
 import logging
-import sys
 import base64
-import re
-from datetime import datetime, timezone
-from pathlib import Path
+from typing import Any
 
-from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, InputDataAggregatorEvent
+from aws_lambda_powertools.utilities.typing import LambdaContext
+from aws_lambda_powertools.utilities.kafka import ConsumerRecords
+
+from flexpart_ifs_preprocessor.domain.data_model import  InputDataAggregatorEvent
 from flexpart_ifs_preprocessor.domain.db_utils import write_product_index, get_steps_to_process, update_product_index_processed
 from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
-from flexpart_ifs_preprocessor.domain.s3_utils import upload_to_s3
 
 logger = logging.getLogger(__name__)
 
 
-def lambda_handler(event, _):
+def lambda_handler(event: ConsumerRecords, _: LambdaContext) -> None:
     input_data_aggregator_events = _parse_event_records(event)
 
     for input_data_aggregator_event in input_data_aggregator_events:
@@ -34,13 +33,13 @@ def lambda_handler(event, _):
             update_product_index_processed(file.object_key, file.forecast_ref_time)
 
 
-def _kafka_event_to_input_data_aggregator_event(kafka_event) -> InputDataAggregatorEvent | None:
+def _kafka_event_to_input_data_aggregator_event(kafka_event: dict[str, Any]) -> InputDataAggregatorEvent:
     data = json.loads(base64.b64decode(kafka_event['value']))
 
     return InputDataAggregatorEvent(data)
 
 
-def _parse_event_records(event) -> list[InputDataAggregatorEvent]:
+def _parse_event_records(event: ConsumerRecords) -> list[InputDataAggregatorEvent]:
     input_data_aggregator_events = []
 
     for _, kafka_events in event['records'].items():

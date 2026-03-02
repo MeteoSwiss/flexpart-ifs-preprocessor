@@ -19,22 +19,22 @@ class InputDataAggregatorEvent:
     object_key: str
     filename: str
     forecast_ref_time: datetime
-    step: str
+    step: int
 
-    def __init__(self, data):
+    def __init__(self, data: dict) -> None:
         self.object_key = data['objectStoreUuid']
         self.filename = data['fileName']
 
         self.forecast_ref_time = self._extract_datetime(self.filename)
         self.step = self.extract_lead_time(self.filename)
 
-    def _extract_datetime(s: str) -> datetime:
+    def _extract_datetime(self, s: str) -> datetime:
         match = re.search(r'(\d{8}T\d{6}Z)', s)
         if not match:
             raise ValueError(f"No datetime found in string: {s}")
         return datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
 
-    def extract_lead_time(s: str) -> int:
+    def extract_lead_time(self, s: str) -> int:
         match = re.search(r'_(\d+)([a-z]+)$', s)
         if not match:
             raise ValueError(f"No lead time found in string: {s}")
