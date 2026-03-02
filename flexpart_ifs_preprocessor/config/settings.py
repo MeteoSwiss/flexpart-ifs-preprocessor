@@ -20,8 +20,6 @@ class TimeSettings(BaseModel):
 
 class AppSettings(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
-
-    app_name: str
     s3: Buckets
     time_settings: TimeSettings
 
