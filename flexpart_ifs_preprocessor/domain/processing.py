@@ -1,12 +1,13 @@
 import logging
 from pathlib import Path
+import os
 
 from flexprep.io_grib import write_grib
 from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
 
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
-from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Domain
 
 logger = logging.getLogger(__name__)
 
@@ -45,8 +46,9 @@ def run_preprocessing(input_file: IFSForecastFile,
     paths = write_grib(processed, output_dir=directory, suffix="-out.grib")
     for path in paths:
         logger.info("Finished writing processed output at: %s", path.name)
+        bucket = os.environ['TARGET_S3_BUCKET_NAME']
 
         # TODO: add metadata to the object key if needed
         # TODO: rename the file if needed, e.g. to match the expected output filename for the step
-        upload_to_s3(path, path.name)
+        upload_to_s3(path, path.name, bucket)
         logger.info("Uploaded file to S3: %s", path.name)

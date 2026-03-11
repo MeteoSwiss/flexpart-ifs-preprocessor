@@ -40,7 +40,7 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
 
     logger.info('Object "%s" downloaded at %s', file.object_key, target_path)
 
-def upload_to_s3(file_path: Path, object_key: str) -> None:
+def upload_to_s3(file_path: Path, object_key: str, bucket: str) -> None:
     s3_client = boto3.client('s3')
-    s3_client.upload_file(str(file_path), os.environ['TARGET_S3_BUCKET_NAME'], object_key)
-    logger.info("Uploaded %s to s3://%s/%s",  file_path, os.environ['TARGET_S3_BUCKET_NAME'], object_key)
+    s3_client.upload_file(str(file_path), bucket, object_key)
+    logger.info("Uploaded %s to s3://%s/%s",  file_path, bucket, object_key)

@@ -1,7 +1,16 @@
 import typing
-from dataclasses import asdict, dataclass
+import logging
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 import re
+from enum import Enum
+
+
+logger = logging.getLogger(__name__)
+
+class Domain(Enum):
+    GLOBAL = "global"
+    EUROPE = "europe"
 
 @dataclass
 class IFSForecastFile:
@@ -10,10 +19,19 @@ class IFSForecastFile:
     object_key: str
     filename: str
     processed: bool
+    domain: Domain = field(init=False)
 
     def to_dict(self) -> dict[str, typing.Any]:
         return asdict(self)
 
+    def __post_init__(self):
+        if "_F1_" in self.filename.upper():
+            self.domain = Domain.EUROPE
+        elif "_F2_" in self.filename.upper():
+            self.domain = Domain.GLOBAL
+        else:
+            logger.error("Unknown domain for file %s: %s", self.filename)
+            raise ValueError(f"Unknown domain for file {self.filename}")
 @dataclass
 class InputDataAggregatorEvent:
     object_key: str
