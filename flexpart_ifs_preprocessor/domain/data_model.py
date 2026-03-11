@@ -61,7 +61,7 @@ class InputDataAggregatorEvent:
         elif "_F2_" in self.filename.upper():
             return Domain.GLOBAL
         else:
-            logger.error("Unknown domain for file %s: %s", self.filename)
+            logger.error("Unknown domain for file %s", self.filename)
             raise ValueError(f"Unknown domain for file {self.filename}")
 
     def _extract_datetime(self, s: str) -> datetime:
