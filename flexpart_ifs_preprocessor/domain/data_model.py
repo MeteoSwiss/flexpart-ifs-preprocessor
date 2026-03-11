@@ -65,16 +65,16 @@ class InputDataAggregatorEvent:
             logger.error("Unknown domain for file %s", self.filename)
             raise ValueError(f"Unknown domain for file {self.filename}")
 
-    def _extract_datetime(self, s: str) -> datetime:
-        match = re.search(r'(\d{8}T\d{6}Z)', s)
+    def _extract_datetime(self) -> datetime:
+        match = re.search(r'(\d{8}T\d{6}Z)', self.filename)
         if not match:
-            raise ValueError(f"No datetime found in string: {s}")
+            raise ValueError(f"No datetime found in string: {self.filename}")
         return datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
 
-    def _extract_lead_time(self, s: str) -> int:
-        match = re.search(r'_(\d+)([a-z]+)$', s)
+    def _extract_lead_time(self) -> int:
+        match = re.search(r'_(\d+)([a-z]+)$', self.filename)
         if not match:
-            raise ValueError(f"No lead time found in string: {s}")
+            raise ValueError(f"No lead time found in string: {self.filename}")
         value, unit = match.group(1), match.group(2)
         if unit != "h":
             raise ValueError(f"Expected unit 'h', got {unit}")
