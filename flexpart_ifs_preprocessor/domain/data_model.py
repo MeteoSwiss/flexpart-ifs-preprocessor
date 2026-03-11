@@ -24,7 +24,7 @@ class IFSForecastFile:
     def to_dict(self) -> dict[str, typing.Any]:
         return asdict(self)
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if "_F1_" in self.filename.upper():
             self.domain = Domain.EUROPE
         elif "_F2_" in self.filename.upper():
