@@ -25,9 +25,6 @@ RUN pip install -r requirements.txt --no-cache-dir --no-deps --root-user-action=
 
 COPY flexpart_ifs_preprocessor /src/app-root/flexpart_ifs_preprocessor
 
-WORKDIR /src
-
-
 FROM base AS tester
 ARG VERSION
 LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
