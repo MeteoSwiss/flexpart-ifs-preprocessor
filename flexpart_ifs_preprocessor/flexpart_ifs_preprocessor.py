@@ -36,6 +36,7 @@ def lambda_handler(event: ConsumerRecords, _: LambdaContext) -> None:
 
 def _kafka_event_to_input_data_aggregator_event(kafka_event: dict[str, Any]) -> InputDataAggregatorEvent:
     data = json.loads(base64.b64decode(kafka_event['value']))
+    logger.debug('Event value: %s', data)
 
     return InputDataAggregatorEvent(data)
 
@@ -46,7 +47,6 @@ def _parse_event_records(event: ConsumerRecords) -> list[InputDataAggregatorEven
     for _, kafka_events in event['records'].items():
         for kafka_event in kafka_events:
             event_value = _kafka_event_to_input_data_aggregator_event(kafka_event)
-            logger.debug('Event value: %s', event_value)
             if event_value.stream in {Stream.S4Y, Stream.S5Y, Stream.S6Y} and event_value.domain in {Domain.EUROPE, Domain.GLOBAL}:
             # Only process data coming from S4Y, S5Y or S6Y streams and feeds F1 and F2 as these are the only ones needed for Flexpart
                 input_data_aggregator_events.append(event_value)
