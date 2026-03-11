@@ -40,11 +40,18 @@ FROM base AS runner
 ARG VERSION
 LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
+RUN pip install awslambdaric --no-cache-dir
+
+# store EarthKit configs in /tmp to avoid Lambda permission issues
+ENV EARTHKIT_DATA_CONFIG_FILE="/tmp/.earthkit/earthkit_config.yaml"
+ENV EARTHKIT_DATA_USER_CACHE_DIRECTORY="/tmp/.earthkit/earthkit_data_cache"
+
 RUN mkdir -p /src/app-root/db && chown -R 1001:1001 /src/app-root/
 
 # For running outside of OpenShift, we want to make sure that the container is run without root privileges
 # uid 1001 is defined in the base-container-images for this purpose
 USER 1001
 
-ENTRYPOINT ["python", "-m", "flexpart_ifs_preprocessor"]
+ENTRYPOINT ["python", "-m", "awslambdaric", "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.lambda_handler"]
+
 CMD []
