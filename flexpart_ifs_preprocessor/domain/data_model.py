@@ -38,14 +38,15 @@ class InputDataAggregatorEvent:
         self.object_key: str = data['objectStoreUuid']
         self.filename: str = data['fileName']
         self.stream = self._extract_stream()
-        self.domain = self._extract_domain()
 
         if self.stream != Stream.UNKNOWN:
             self.forecast_ref_time = self._extract_datetime()
             self.step = self._extract_lead_time()
+            self.domain = self._extract_domain()
         else:
             self.forecast_ref_time = None
             self.step = None
+            self.domain = None
 
     def _extract_stream(self) -> Stream:
         match = re.search(r'(S[456]Y)', self.filename.upper())
