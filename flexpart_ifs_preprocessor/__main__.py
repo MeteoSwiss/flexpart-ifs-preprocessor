@@ -3,6 +3,7 @@
 import json
 import logging
 import base64
+import re
 from typing import Any
 
 from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -44,6 +45,9 @@ def _parse_event_records(event: ConsumerRecords) -> list[InputDataAggregatorEven
 
     for _, kafka_events in event['records'].items():
         for kafka_event in kafka_events:
-            input_data_aggregator_events.append(_kafka_event_to_input_data_aggregator_event(kafka_event))
+            event_value = _kafka_event_to_input_data_aggregator_event(kafka_event)
+            # Only process data coming from S4Y, S5Y or S6Y streams as these are the only ones needed for Flexpart
+            if bool(re.search(r'S[456]Y', event_value.filename)):
+                input_data_aggregator_events.append(event_value)
 
     return input_data_aggregator_events
