@@ -7,7 +7,7 @@ from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
 
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
-from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Domain
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
 
 logger = logging.getLogger(__name__)
 

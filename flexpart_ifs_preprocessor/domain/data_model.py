@@ -14,9 +14,10 @@ class Stream(Enum):
     S6Y = "S6Y" # prod
     UNKNOWN = "UNKNOWN"
 
-class Domain(Enum):
-    GLOBAL = "global"
-    EUROPE = "europe"
+class Feed(Enum):
+    F1 = "GLOBAL"
+    F2 = "EUROPE"
+    UNKNOWN = "UNKNOWN"
 
 @dataclass
 class IFSForecastFile:
@@ -25,7 +26,7 @@ class IFSForecastFile:
     object_key: str
     filename: str
     processed: bool
-    domain: Domain = field(init=False)
+    domain: Feed = field(init=False)
 
     def to_dict(self) -> dict[str, typing.Any]:
         return asdict(self)
@@ -42,7 +43,7 @@ class InputDataAggregatorEvent:
         if self.stream != Stream.UNKNOWN:
             self.forecast_ref_time = self._extract_datetime()
             self.step = self._extract_lead_time()
-            self.domain = self._extract_domain()
+            self.domain = self._extract_feed()
         else:
             self.forecast_ref_time = None
             self.step = None
@@ -54,16 +55,15 @@ class InputDataAggregatorEvent:
             return Stream.UNKNOWN
         return Stream(match.group(1))
 
-    def _extract_domain(self) -> Domain:
+    def _extract_feed(self) -> Feed:
         # F1 - Global domain
         if "_F1_" in self.filename.upper():
-            return Domain.EUROPE
+            return Feed.F1
         # F2 - Europe domain
         elif "_F2_" in self.filename.upper():
-            return Domain.GLOBAL
+            return Feed.F2
         else:
-            logger.error("Unknown domain for file %s", self.filename)
-            raise ValueError(f"Unknown domain for file {self.filename}")
+            return Feed.UNKNOWN
 
     def _extract_datetime(self) -> datetime:
         match = re.search(r'(\d{8}T\d{6}Z)', self.filename)
