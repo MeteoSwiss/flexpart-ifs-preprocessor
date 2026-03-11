@@ -9,9 +9,9 @@ from enum import Enum
 logger = logging.getLogger(__name__)
 
 class Stream(Enum):
-    S4Y = "S4Y"
-    S5Y = "S5Y"
-    S6Y = "S6Y"
+    S4Y = "S4Y" # devt
+    S5Y = "S5Y" # depl
+    S6Y = "S6Y" # prod
     UNKNOWN = "UNKNOWN"
 
 class Domain(Enum):
@@ -35,8 +35,8 @@ class InputDataAggregatorEvent:
 
     def __init__(self, data: dict) -> None:
 
-        self.object_key = data['objectStoreUuid']
-        self.filename = data['fileName']
+        self.object_key: str = data['objectStoreUuid']
+        self.filename: str = data['fileName']
         self.stream = self._extract_stream()
         self.domain = self._extract_domain()
 
@@ -54,8 +54,10 @@ class InputDataAggregatorEvent:
         return Stream(match.group(1))
 
     def _extract_domain(self) -> Domain:
+        # F1 - Global domain
         if "_F1_" in self.filename.upper():
             return Domain.EUROPE
+        # F2 - Europe domain
         elif "_F2_" in self.filename.upper():
             return Domain.GLOBAL
         else:
