@@ -46,6 +46,7 @@ def _parse_event_records(event: ConsumerRecords) -> list[InputDataAggregatorEven
     for _, kafka_events in event['records'].items():
         for kafka_event in kafka_events:
             event_value = _kafka_event_to_input_data_aggregator_event(kafka_event)
+            logger.debug('Event value: %s', event_value)
             # Only process data coming from S4Y, S5Y or S6Y streams and feeds F1 and F2 as these are the only ones needed for Flexpart
             if bool(re.search(r'S[456]Y_F[12]', event_value.filename.upper())):
                 input_data_aggregator_events.append(event_value)

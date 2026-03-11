@@ -36,10 +36,10 @@ class IFSForecastFile:
 class InputDataAggregatorEvent:
     object_key: str
     filename: str
-    forecast_ref_time: datetime
-    step: int
+    forecast_ref_time: datetime = field(init=False)
+    step: int = field(init=False)
 
-    def __init__(self, data: dict) -> None:
+    def __post_init__(self, data: dict) -> None:
         self.object_key = data['objectStoreUuid']
         self.filename = data['fileName']
 
