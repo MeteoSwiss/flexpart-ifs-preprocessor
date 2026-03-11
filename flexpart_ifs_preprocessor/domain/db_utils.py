@@ -5,23 +5,23 @@ from datetime import datetime, UTC
 import boto3
 
 from flexpart_ifs_preprocessor import CONFIG
-from flexpart_ifs_preprocessor.domain.data_model import InputDataAggregatorEvent, IFSForecastFile
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
 
 logger = logging.getLogger(__name__)
 
 db_client = boto3.resource('dynamodb')
 
-def write_product_index(input_data_aggregator_event: InputDataAggregatorEvent) -> None:
+def write_product_index(event: IFSForecastFile) -> None:
 
     # Adding created_at parameter for tracking files longevity
     creation_timestamp = int(datetime.now(UTC).timestamp())
 
     message = {
-        'ReferenceTimePartitionKey': int(input_data_aggregator_event.forecast_ref_time.timestamp()),  # Partition Key
-        'ObjectKey': input_data_aggregator_event.object_key,  # DynamoDB Primary Sort Key
-        'ReferenceTime': str(input_data_aggregator_event.forecast_ref_time),
-        'LeadTime': input_data_aggregator_event.step,
-        'FileName': input_data_aggregator_event.filename,
+        'ReferenceTimePartitionKey': int(event.forecast_ref_time.timestamp()),  # Partition Key
+        'ObjectKey': event.object_key,  # DynamoDB Primary Sort Key
+        'ReferenceTime': str(event.forecast_ref_time),
+        'LeadTime': event.step,
+        'FileName': event.filename,
         'CreatedAt': creation_timestamp,
         'Status': 'PENDING',
     }
