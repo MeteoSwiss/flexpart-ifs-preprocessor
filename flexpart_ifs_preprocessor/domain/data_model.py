@@ -8,6 +8,12 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+class Stream(Enum):
+    S4Y = "S4Y"
+    S5Y = "S5Y"
+    S6Y = "S6Y"
+    UNKNOWN = "UNKNOWN"
+
 class Domain(Enum):
     GLOBAL = "global"
     EUROPE = "europe"
@@ -24,20 +30,14 @@ class IFSForecastFile:
     def to_dict(self) -> dict[str, typing.Any]:
         return asdict(self)
 
-    def __post_init__(self) -> None:
-        if "_F1_" in self.filename.upper():
-            self.domain = Domain.EUROPE
-        elif "_F2_" in self.filename.upper():
-            self.domain = Domain.GLOBAL
-        else:
-            logger.error("Unknown domain for file %s: %s", self.filename)
-            raise ValueError(f"Unknown domain for file {self.filename}")
 @dataclass
 class InputDataAggregatorEvent:
     object_key: str
     filename: str
     forecast_ref_time: datetime = field(init=False)
     step: int = field(init=False)
+    domain: Domain = field(init=False)
+    stream: Stream = field(init=False)
 
     def __post_init__(self, data: dict) -> None:
         self.object_key = data['objectStoreUuid']
@@ -45,6 +45,24 @@ class InputDataAggregatorEvent:
 
         self.forecast_ref_time = self._extract_datetime(self.filename)
         self.step = self.extract_lead_time(self.filename)
+        self.stream = self._extract_stream()
+        self.domain = self._extract_domain()
+
+
+    def _extract_stream(self) -> Stream:
+        match = re.search(r'(S[456]Y)', self.filename.upper())
+        if not match:
+            return Stream.UNKNOWN
+        return Stream(match.group(1))
+
+    def _extract_domain(self) -> Domain:
+        if "_F1_" in self.filename.upper():
+            return Domain.EUROPE
+        elif "_F2_" in self.filename.upper():
+            return Domain.GLOBAL
+        else:
+            logger.error("Unknown domain for file %s: %s", self.filename)
+            raise ValueError(f"Unknown domain for file {self.filename}")
 
     def _extract_datetime(self, s: str) -> datetime:
         match = re.search(r'(\d{8}T\d{6}Z)', s)

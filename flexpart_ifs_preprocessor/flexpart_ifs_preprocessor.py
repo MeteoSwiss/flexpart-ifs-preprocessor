@@ -9,7 +9,7 @@ from typing import Any
 from aws_lambda_powertools.utilities.typing import LambdaContext
 from aws_lambda_powertools.utilities.kafka import ConsumerRecords
 
-from flexpart_ifs_preprocessor.domain.data_model import  InputDataAggregatorEvent
+from flexpart_ifs_preprocessor.domain.data_model import  InputDataAggregatorEvent, Stream, Domain
 from flexpart_ifs_preprocessor.domain.db_utils import write_product_index, get_steps_to_process, update_product_index_processed
 from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
 
@@ -47,8 +47,8 @@ def _parse_event_records(event: ConsumerRecords) -> list[InputDataAggregatorEven
         for kafka_event in kafka_events:
             event_value = _kafka_event_to_input_data_aggregator_event(kafka_event)
             logger.debug('Event value: %s', event_value)
+            if event_value.stream in {Stream.S4Y, Stream.S5Y, Stream.S6Y} and event_value.domain in {Domain.EUROPE, Domain.GLOBAL}:
             # Only process data coming from S4Y, S5Y or S6Y streams and feeds F1 and F2 as these are the only ones needed for Flexpart
-            if bool(re.search(r'S[456]Y_F[12]', event_value.filename.upper())):
                 input_data_aggregator_events.append(event_value)
 
     return input_data_aggregator_events
