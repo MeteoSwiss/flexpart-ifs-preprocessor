@@ -6,7 +6,7 @@ class Globals {
     static int mypyIssueThreshold = 10
 
     // Name of the container image
-    static String containerImageName= ''
+    static String containerImageName = ''
 
     // Semantic version of the artifact
     static String semanticVersion = ''
@@ -21,7 +21,7 @@ class Globals {
     static String docVersion = 'n/a'
 
     // Pin mchbuild to stable version to avoid breaking changes
-    static String mchbuildPipPackage = 'mchbuild>=0.13.0,<0.14.0'
+    static String mchbuildPipPackage = 'mchbuild>=1.0.0,<2.0.0'
 }
 
 String rebuild_cron = env.BRANCH_NAME == "main" ? "@midnight" : ""
@@ -105,8 +105,6 @@ pipeline {
                         if (env.CHANGE_ID) {
                             echo "Development build triggered from a merge request."
                             Globals.mergeRequestBuild = true
-                            // Merge request builds can use any version, as long as it avoids conflicts with normal branch builds.
-                            Globals.semanticVersion += "-mr${env.CHANGE_ID}"
                         }
                     }
 

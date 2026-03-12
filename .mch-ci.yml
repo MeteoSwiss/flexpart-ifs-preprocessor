@@ -92,9 +92,9 @@ local:
               commands: flexpart-ifs-preprocessor greeting "the greeting command"
 
 variables:
-  solution: flexpart-ifs
+  solution: dispersionmodelling
   project: flexpart-ifs-preprocessor
   notifyOnNightlyFailure: victoria.cherkas@meteoswiss.ch
   semanticVersion: 0.0.0  # is overwritten in Jenkins
   buildId: n/a # is overwritten in Jenkins
-  containerImageName: docker-intern-nexus.meteoswiss.ch/flexpart-ifs/flexpart-ifs-preprocessor
+  containerImageName: docker-intern-nexus.meteoswiss.ch/dispersionmodelling/flexpart-ifs-preprocessor

@@ -1,15 +1,82 @@
 import typing
-from dataclasses import asdict, dataclass
-from datetime import datetime
+import logging
+from dataclasses import asdict, dataclass, field
+from datetime import datetime, timezone
+import re
+from enum import Enum
 
 
-@dataclass
-class IFSForecast:
-    row_id: int
-    forecast_ref_time: datetime
-    step: int
-    key: str
-    processed: bool
+logger = logging.getLogger(__name__)
 
-    def to_dict(self) -> dict[str, typing.Any]:
-        return asdict(self)
+class Stream(Enum):
+    S4Y = "S4Y" # devt
+    S5Y = "S5Y" # depl
+    S6Y = "S6Y" # prod
+    UNKNOWN = "UNKNOWN"
+
+class Feed(Enum):
+    F1 = "GLOBAL"
+    F2 = "EUROPE"
+    UNKNOWN = "UNKNOWN"
+
+
+class IFSForecastFile:
+
+    def __init__(self, object_key: str, filename: str, domain: Feed | None = None, forecast_ref_time: datetime | None = None, step: int | None = None, processed: bool = False):
+        self.object_key = object_key
+        self.filename = filename
+        self.domain = domain or self._extract_feed()
+        self.processed = processed
+        self.forecast_ref_time: datetime = forecast_ref_time or self._extract_datetime()
+        self.step: int = step or self._extract_lead_time()
+
+    def _extract_datetime(self) -> datetime:
+        match = re.search(r'(\d{8}T\d{6}Z)', self.filename)
+        if not match:
+            raise ValueError(f"No datetime found in string: {self.filename}")
+        return datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
+
+    def _extract_lead_time(self) -> int:
+        match = re.search(r'_(\d+)([a-z]+)$', self.filename)
+        if not match:
+            raise ValueError(f"No lead time found in string: {self.filename}")
+        value, unit = match.group(1), match.group(2)
+        if unit != "h":
+            raise ValueError(f"Expected unit 'h', got {unit}")
+        return int(value)
+
+    def _extract_feed(self) -> Feed:
+        # F1 - Global domain
+        if "_F1_" in self.filename.upper():
+            return Feed.F1
+        # F2 - Europe domain
+        elif "_F2_" in self.filename.upper():
+            return Feed.F2
+        else:
+            raise ValueError(f"Uknown domain/feed (F1/F2) in {self.filename}")
+
+
+class InputDataAggregatorEvent:
+
+    def __init__(self, data: dict) -> None:
+
+        self.object_key: str = data['objectStoreUuid']
+        self.filename: str = data['fileName']
+        self.stream = self._extract_stream()
+        self.feed = self._extract_feed()
+
+    def _extract_stream(self) -> Stream:
+        match = re.search(r'(S[456]Y)', self.filename.upper())
+        if not match:
+            return Stream.UNKNOWN
+        return Stream(match.group(1))
+
+    def _extract_feed(self) -> Feed:
+        # F1 - Global domain
+        if "_F1_" in self.filename.upper():
+            return Feed.F1
+        # F2 - Europe domain
+        elif "_F2_" in self.filename.upper():
+            return Feed.F2
+        else:
+            return Feed.UNKNOWN

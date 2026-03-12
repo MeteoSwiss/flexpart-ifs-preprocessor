@@ -5,10 +5,9 @@ logging:
   formatter: "standard"
   child_log_levels:
     mchpy: INFO
+app_name: Flexpart-IFS-Preprocessor
 main:
-  app_name: Flexpart-IFS-Preprocessor
-  db_path: /src/db/sqlite3-db
-  s3_buckets:
+  s3:
     input:
       endpoint_url: https://object-store.os-api.cci1.ecmwf.int
       name: ifs-model-data
@@ -16,5 +15,5 @@ main:
       endpoint_url: https://object-store.os-api.cci1.ecmwf.int
       name: flexpart-input
   time_settings:
-    tincr: 1
+    tincr: 3
     tstart: 0
