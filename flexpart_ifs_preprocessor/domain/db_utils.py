@@ -74,7 +74,7 @@ def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSFor
 
 def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
     return IFSForecastFile(
-        forecast_ref_time=datetime.fromtimestamp(item['ReferenceTimePartitionKey'], tz=UTC),
+        forecast_ref_time=datetime.fromtimestamp(int(item['ReferenceTimePartitionKey']), tz=UTC),
         step=item['LeadTime'],
         object_key=item['ObjectKey'],
         filename=item['FileName'],
