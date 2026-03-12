@@ -46,7 +46,7 @@ RUN pip install awslambdaric --no-cache-dir
 ENV EARTHKIT_DATA_CONFIG_FILE="/tmp/.earthkit/earthkit_config.yaml"
 ENV EARTHKIT_DATA_USER_CACHE_DIRECTORY="/tmp/.earthkit/earthkit_data_cache"
 
-RUN mkdir -p /src/app-root/db && chown -R 1001:1001 /src/app-root/
+RUN mkdir -p /src/data && chown -R 1001:1001 /src/app-root/ /src/data
 
 # For running outside of OpenShift, we want to make sure that the container is run without root privileges
 # uid 1001 is defined in the base-container-images for this purpose

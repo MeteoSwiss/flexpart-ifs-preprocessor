@@ -16,7 +16,7 @@ def run_preprocessing(input_file: IFSForecastFile,
                       previous_file: IFSForecastFile,
                       step_zero_files: list[IFSForecastFile]) -> None:
 
-    directory = Path.home() / "data"
+    directory = Path("/tmp") / "data"
 
     # Download the files, skipping any that already exist in the temp directory
     logger.info("Downloading main file for processing: %s", input_file.object_key)
