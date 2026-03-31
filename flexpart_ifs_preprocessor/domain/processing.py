@@ -41,20 +41,36 @@ def run_preprocessing(input_file: IFSForecastFile,
         processed = preprocess(raw)
         logger.info("Prepared fields: %s", ", ".join(sorted(processed.keys())))
 
-        _generate_and_upload_grib_file(directory, processed)
+        _generate_and_upload_grib_file(directory, processed, input_file)
 
 
-def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataArray]):
+def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataArray], input_file: IFSForecastFile):
     # Write FLEXPART-ready GRIB2 (one file per forecast step)
-    logger.info("Writing GRIB2 files to %s ...", output_dir)
-    paths = write_grib(processed, output_dir=output_dir, suffix="-out.grib")
+    logger.info("Writing GRIB2 file to %s ...", output_dir)
+
+    prefix = ""
+    if input_file.domain == Feed.F1:
+        prefix = "dispc"
+    elif input_file.domain == Feed.F2:
+        prefix = "dispf"
+
+    paths = write_grib(
+        processed,
+        output_dir=output_dir,
+        prefix=prefix,
+        suffix="")
     try:
+        metadata = {
+            "model": "IFS",
+            "date": input_file.forecast_ref_time.strftime("%Y%m%d"),
+            "time": input_file.forecast_ref_time.strftime("%H%M"),
+            "step": input_file.step,
+            "domain": str(input_file.domain.value),
+            }
         for path in paths:
             logger.info("Finished writing processed output at: %s", path.name)
             bucket = os.environ['TARGET_S3_BUCKET_NAME']
-            # TODO DT-258: add metadata to the object key if needed
-            # TODO DT-258: rename the file if needed, e.g. to match the expected output filename for the step
-            upload_to_s3(path, path.name, bucket)
+            upload_to_s3(path, path.name, bucket, metadata)
             logger.info("Uploaded file to S3: %s", path.name)
     finally:
         # Delete all local files if uploaded or not
