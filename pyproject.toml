@@ -41,6 +41,7 @@ sphinx = "*"
 importlib_resources = "*"
 pydata-sphinx-theme = "*"
 sphinx-autoapi = "*"
+moto = "^5.1.22"
 
 [tool.poetry.scripts]
 flexpart-ifs-preprocessor = "flexpart_ifs_preprocessor.main:cli"

@@ -64,7 +64,7 @@ def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataAr
             "model": "IFS",
             "date": input_file.forecast_ref_time.strftime("%Y%m%d"),
             "time": input_file.forecast_ref_time.strftime("%H%M"),
-            "step": input_file.step,
+            "step": str(input_file.step),
             "domain": str(input_file.domain.value),
             }
         for path in paths:
