@@ -10,7 +10,6 @@ class Bucket(BaseModel):
 
 
 class Buckets(BaseModel):
-    input: Bucket
     output: Bucket
 
 
