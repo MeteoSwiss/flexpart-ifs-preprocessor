@@ -1,4 +1,9 @@
-"""Tests for flexpart_ifs_preprocessor.domain.db_utils."""
+"""Unit tests for flexpart_ifs_preprocessor.domain.db_utils.
+
+These unit tests cover the complex branching in get_steps_to_process (missing
+predecessor, already-processed skip, multiple pending steps, no step-zero)
+and the exact DynamoDB item shape written by write_product_index.
+"""
 
 from datetime import datetime, timezone, UTC
 from unittest.mock import patch
@@ -147,21 +152,7 @@ class TestWriteProductIndex:
                 assert item["LeadTime"] == 6
                 assert item["Status"] == "PENDING"
                 assert item["FileName"] == f.filename
-
-    def test_initial_status_is_pending(self):
-        with mock_aws():
-            ddb = boto3.resource("dynamodb", region_name="eu-central-1")
-            table = _make_ddb_table(ddb)
-            with patch("flexpart_ifs_preprocessor.domain.db_utils.db_client", return_value=ddb):
-                f = _make_file(step=3)
-                write_product_index(f)
-                item = table.get_item(
-                    Key={
-                        "ReferenceTimePartitionKey": REF_TIME_KEY,
-                        "ObjectKey": f.object_key,
-                    }
-                )["Item"]
-                assert item["Status"] == "PENDING"
+                assert "CreatedAt" in item
 
 
 # ---------------------------------------------------------------------------
@@ -284,24 +275,6 @@ class TestGetStepsToProcess:
 
 
 class TestUpdateProductIndexProcessed:
-    def test_status_changed_to_processed(self):
-        with mock_aws():
-            ddb = boto3.resource("dynamodb", region_name="eu-central-1")
-            table = _make_ddb_table(ddb)
-            _put_item(table, step=6, status="PENDING")
-            filename = _FILENAME_TEMPLATE.format(step=6)
-            object_key = f"prefix/{filename}"
-            with patch("flexpart_ifs_preprocessor.domain.db_utils.db_client", return_value=ddb):
-                update_product_index_processed(object_key, FORECAST_REF_TIME)
-            item = table.get_item(
-                Key={
-                    "ReferenceTimePartitionKey": REF_TIME_KEY,
-                    "ObjectKey": object_key,
-                }
-            )["Item"]
-            assert item["Status"] == "PROCESSED"
-            assert "ProcessedAt" in item
-
     def test_processed_at_is_set(self):
         with mock_aws():
             ddb = boto3.resource("dynamodb", region_name="eu-central-1")

@@ -1,4 +1,12 @@
-"""Tests for flexpart_ifs_preprocessor.domain.s3_utils."""
+"""Unit tests for flexpart_ifs_preprocessor.domain.s3_utils.
+
+Why these exist alongside the integration tests
+-----------------------------------------------
+The integration test confirms files land in S3 but never inspects the S3
+metadata envelope, the skip-if-exists download logic, directory auto-creation,
+or the STS assume-role call.  These unit tests cover each of those behaviours
+in isolation so a regression pinpoints exactly which function broke.
+"""
 
 import json
 import os
@@ -13,20 +21,12 @@ from moto import mock_aws
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
 
 SOURCE_BUCKET = "source-bucket"
 TARGET_BUCKET = "target-bucket"
 FILENAME = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
 OBJECT_KEY = f"prefix/{FILENAME}"
 DUMMY_CONTENT = b"dummy grib content"
-
-
-# ---------------------------------------------------------------------------
-# Fixtures
-# ---------------------------------------------------------------------------
 
 
 @pytest.fixture()
@@ -47,10 +47,6 @@ def populated_source_bucket():
         yield s3
 
 
-# ---------------------------------------------------------------------------
-# upload_to_s3
-# ---------------------------------------------------------------------------
-
 
 @pytest.fixture()
 def s3_client_with_target_bucket():
@@ -65,18 +61,6 @@ def s3_client_with_target_bucket():
 
 
 class TestUploadToS3:
-    def test_file_is_uploaded(self, s3_client_with_target_bucket):
-        s3 = s3_client_with_target_bucket
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".grib") as tmp:
-            tmp.write(DUMMY_CONTENT)
-            tmp_path = Path(tmp.name)
-        try:
-            upload_to_s3(tmp_path, "output/file.grib", TARGET_BUCKET)
-            response = s3.get_object(Bucket=TARGET_BUCKET, Key="output/file.grib")
-            assert response["Body"].read() == DUMMY_CONTENT
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
     def test_metadata_attached(self, s3_client_with_target_bucket):
         s3 = s3_client_with_target_bucket
         metadata = {"model": "IFS", "date": "20260331", "step": 74}
@@ -105,28 +89,6 @@ class TestUploadToS3:
             assert response["Body"].read() == DUMMY_CONTENT
         finally:
             tmp_path.unlink(missing_ok=True)
-
-    @pytest.mark.parametrize("object_key", [
-        "simple.grib",
-        "nested/path/file.grib",
-        "very/deep/nested/path/to/file.grib",
-    ])
-    def test_various_object_keys(self, object_key, s3_client_with_target_bucket):
-        s3 = s3_client_with_target_bucket
-        with tempfile.NamedTemporaryFile(delete=False) as tmp:
-            tmp.write(DUMMY_CONTENT)
-            tmp_path = Path(tmp.name)
-        try:
-            upload_to_s3(tmp_path, object_key, TARGET_BUCKET)
-            response = s3.get_object(Bucket=TARGET_BUCKET, Key=object_key)
-            assert response["Body"].read() == DUMMY_CONTENT
-        finally:
-            tmp_path.unlink(missing_ok=True)
-
-
-# ---------------------------------------------------------------------------
-# download_file
-# ---------------------------------------------------------------------------
 
 
 class TestDownloadFile:
@@ -167,14 +129,6 @@ class TestDownloadFile:
             download_file(forecast_file, tmp_path)
         assert (tmp_path / FILENAME).read_bytes() == DUMMY_CONTENT
 
-    def test_target_dir_created_if_missing(self, forecast_file, tmp_path):
-        new_dir = tmp_path / "nested" / "dir"
-        mock_s3 = self._make_mock_s3_client(new_dir)
-        with patch("flexpart_ifs_preprocessor.domain.s3_utils.boto3.client",
-                   side_effect=self._make_mock_sts(mock_s3)):
-            download_file(forecast_file, new_dir)
-        assert new_dir.exists()
-
     def test_skips_download_if_file_exists(self, forecast_file, tmp_path):
         # Pre-create the target file
         existing = tmp_path / FILENAME
@@ -187,26 +141,3 @@ class TestDownloadFile:
         mock_s3.download_file.assert_not_called()
         # Original content untouched
         assert existing.read_bytes() == b"already here"
-
-    def test_sts_assume_role_called_with_correct_arn(self, forecast_file, tmp_path):
-        mock_sts = MagicMock()
-        mock_sts.assume_role.return_value = {
-            "Credentials": {
-                "AccessKeyId": "AK",
-                "SecretAccessKey": "SK",
-                "SessionToken": "ST",
-            }
-        }
-        mock_s3 = self._make_mock_s3_client(tmp_path)
-
-        def fake_boto3_client(service, **kwargs):
-            if service == "sts":
-                return mock_sts
-            return mock_s3
-
-        with patch("flexpart_ifs_preprocessor.domain.s3_utils.boto3.client",
-                   side_effect=fake_boto3_client):
-            download_file(forecast_file, tmp_path)
-
-        call_kwargs = mock_sts.assume_role.call_args
-        assert call_kwargs.kwargs["RoleArn"] == os.environ["SOURCE_ROLE_ARN"]

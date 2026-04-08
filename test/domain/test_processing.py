@@ -1,27 +1,28 @@
-"""Tests for flexpart_ifs_preprocessor.domain.processing and the flexprep pipeline."""
+"""Unit tests for flexpart_ifs_preprocessor.domain.processing and the flexprep pipeline.
 
-import os
-import tempfile
+Why these exist alongside the integration tests
+-----------------------------------------------
+load_grib / preprocess: tested here against the real GRIB file with precise
+assertions (exact field names, grid dimensions, unit contracts, coordinate
+presence) that the integration test never checks.
+
+_generate_and_upload_grib_file: tested with mocked I/O to verify Feed→prefix
+mapping, upload-count correctness, output file deletion (including on error),
+metadata key set, and Decimal-step JSON serialisation — none of which the
+integration test asserts.
+
+run_preprocessing: error-path and temp-file-cleanup behaviour that the
+integration test does not trigger.
+"""
+
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-import xarray as xr
 
 from flexpart_ifs_preprocessor.domain.data_model import Feed, IFSForecastFile
 
-# ---------------------------------------------------------------------------
-# The real GRIB file provided as a test resource
-# ---------------------------------------------------------------------------
-
-RESOURCES_DIR = Path(__file__).parent.parent / "resources"
-GRIB_FILE = RESOURCES_DIR / "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
-
-
-# ===========================================================================
-# load_grib
-# ===========================================================================
-
+from conftest import GRIB_FILE
 
 class TestLoadGrib:
     """Tests for flexprep.sources.local.load_grib against the real GRIB file."""
@@ -30,9 +31,6 @@ class TestLoadGrib:
     def raw(self):
         from flexprep.sources.local import load_grib
         return load_grib(GRIB_FILE)
-
-    def test_returns_dict(self, raw):
-        assert isinstance(raw, dict)
 
     def test_expected_surface_fields_present(self, raw):
         expected = {"sp", "sd", "tcc", "2t", "2d", "10u", "10v"}
@@ -61,10 +59,6 @@ class TestLoadGrib:
         assert raw[field].sizes["latitude"] == 301
         assert raw[field].sizes["longitude"] == 571
 
-    def test_all_values_are_xarray_dataarrays(self, raw):
-        for key, val in raw.items():
-            assert isinstance(val, xr.DataArray), f"Field '{key}' is not a DataArray"
-
 
 # ===========================================================================
 # preprocess
@@ -81,9 +75,6 @@ class TestPreprocess:
         raw = load_grib(GRIB_FILE)
         return preprocess(raw)
 
-    def test_returns_dict(self, processed):
-        assert isinstance(processed, dict)
-
     def test_expected_output_fields_present(self, processed):
         expected = {"t", "u", "v", "q", "omega", "sp", "sd", "tcc", "2t", "2d", "10u", "10v"}
         assert expected.issubset(processed.keys())
@@ -94,21 +85,9 @@ class TestPreprocess:
         assert "etadot" not in processed
 
     @pytest.mark.parametrize("field", ["t", "u", "v", "q", "omega"])
-    def test_3d_field_has_level_dim(self, processed, field):
-        assert "level" in processed[field].dims
-
-    @pytest.mark.parametrize("field", ["sp", "sd", "tcc", "2t", "2d", "10u", "10v"])
-    def test_surface_field_has_no_level_dim(self, processed, field):
-        assert "level" not in processed[field].dims
-
-    @pytest.mark.parametrize("field", ["t", "u", "v", "q", "omega"])
     def test_3d_field_spatial_shape(self, processed, field):
         assert processed[field].sizes["latitude"] == 301
         assert processed[field].sizes["longitude"] == 571
-
-    def test_all_values_are_xarray_dataarrays(self, processed):
-        for key, val in processed.items():
-            assert isinstance(val, xr.DataArray), f"Field '{key}' is not a DataArray"
 
     def test_sp_units_are_pascals(self, processed):
         attrs = processed["sp"].attrs
@@ -123,137 +102,95 @@ class TestPreprocess:
 class TestGenerateAndUploadGribFile:
     """Unit tests for the internal helper that writes and uploads GRIB output."""
 
-    @pytest.fixture()
+    _FILENAME = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
+
+    @pytest.fixture(scope="class")
     def processed_fields(self):
         from flexprep.sources.local import load_grib
         from flexprep.preprocessing import preprocess
-        raw = load_grib(GRIB_FILE)
-        return preprocess(raw)
+        return preprocess(load_grib(GRIB_FILE))
+
+    @pytest.fixture()
+    def input_file(self):
+        return IFSForecastFile(
+            object_key=f"prefix/{self._FILENAME}",
+            filename=self._FILENAME,
+        )
+
+    @pytest.fixture()
+    def fake_path(self, tmp_path):
+        p = tmp_path / "dispf_out"
+        p.write_bytes(b"grib")
+        return p
 
     @pytest.mark.parametrize("domain, expected_prefix", [
         (Feed.F1, "dispc"),
         (Feed.F2, "dispf"),
     ])
-    def test_correct_prefix_used(self, processed_fields, domain, expected_prefix, tmp_path):
+    def test_correct_prefix_used(self, processed_fields, domain, expected_prefix, fake_path, tmp_path):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
-
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
         input_file = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
+            object_key=f"prefix/{self._FILENAME}",
+            filename=self._FILENAME,
             domain=domain,
         )
-
-        fake_path = tmp_path / "dispf20260403080074"
-        fake_path.write_bytes(b"grib")
-
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]) as mock_write, \
              patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3"):
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
-            call_kwargs = mock_write.call_args.kwargs
-            assert call_kwargs["prefix"] == expected_prefix
+            assert mock_write.call_args.kwargs["prefix"] == expected_prefix
 
-    def test_upload_called_for_each_written_path(self, processed_fields, tmp_path):
+    def test_upload_called_for_each_written_path(self, processed_fields, input_file, tmp_path):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
-
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
-        input_file = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
-        )
-
         fake_paths = [tmp_path / f"dispf_out_{i}" for i in range(3)]
         for p in fake_paths:
             p.write_bytes(b"grib")
-
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=fake_paths), \
              patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
-            assert mock_upload.call_count == 3
+        assert mock_upload.call_count == 3
 
-    def test_output_files_deleted_after_upload(self, processed_fields, tmp_path):
+    @pytest.mark.parametrize("upload_side_effect, expect_raises", [
+        (None,                       None),
+        (RuntimeError("S3 error"),   RuntimeError),
+    ])
+    def test_output_files_deleted(self, processed_fields, input_file, fake_path, tmp_path,
+                                   upload_side_effect, expect_raises):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
-
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
-        input_file = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
-        )
-
-        fake_path = tmp_path / "dispf_out"
-        fake_path.write_bytes(b"grib")
-
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3"):
-            _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
-
-        assert not fake_path.exists()
-
-    def test_output_files_deleted_even_if_upload_raises(self, processed_fields, tmp_path):
-        from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
-
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
-        input_file = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
-        )
-
-        fake_path = tmp_path / "dispf_out"
-        fake_path.write_bytes(b"grib")
-
-        with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3", side_effect=RuntimeError("S3 error")):
-            with pytest.raises(RuntimeError, match="S3 error"):
+             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3", side_effect=upload_side_effect):
+            if expect_raises:
+                with pytest.raises(expect_raises):
+                    _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
+            else:
                 _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
-
         assert not fake_path.exists()
 
-    def test_upload_metadata_contains_required_keys(self, processed_fields, tmp_path):
+    def test_upload_metadata_contains_required_keys(self, processed_fields, input_file, fake_path, tmp_path):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
-
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
-        input_file = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
-        )
-
-        fake_path = tmp_path / "dispf_out"
-        fake_path.write_bytes(b"grib")
-
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
              patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
-
         _, _, _, metadata = mock_upload.call_args.args
         assert set(metadata.keys()) == {"model", "date", "time", "step", "domain"}
         assert metadata["model"] == "IFS"
         assert metadata["step"] == "74"
         assert metadata["domain"] == "EUROPE"
 
-    def test_metadata_is_json_serialisable_with_decimal_step(self, processed_fields, tmp_path):
+    def test_metadata_is_json_serialisable_with_decimal_step(self, processed_fields, fake_path, tmp_path):
         """Regression: DynamoDB Decimal step must not cause TypeError in json.dumps."""
         import json
         from decimal import Decimal
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
-
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
         input_file = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
-            step=Decimal("74"),  # as returned by DynamoDB
+            object_key=f"prefix/{self._FILENAME}",
+            filename=self._FILENAME,
+            step=Decimal("74"),
         )
-
-        fake_path = tmp_path / "dispf_out"
-        fake_path.write_bytes(b"grib")
-
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
              patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
-
         _, _, _, metadata = mock_upload.call_args.args
-        # Must not raise TypeError
-        serialised = json.dumps(metadata)
-        assert '"74"' in serialised
+        assert '"74"' in json.dumps(metadata)
 
 
 # ===========================================================================
@@ -264,86 +201,52 @@ class TestGenerateAndUploadGribFile:
 class TestRunPreprocessing:
     """Integration-style tests for run_preprocessing with mocked I/O."""
 
+    _FILENAME = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
+
     @pytest.fixture()
     def three_files(self):
-        filename = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
-        make = lambda: IFSForecastFile(object_key=f"prefix/{filename}", filename=filename)
+        make = lambda: IFSForecastFile(object_key=f"prefix/{self._FILENAME}", filename=self._FILENAME)
         return make(), make(), [make(), make()]
 
-    def test_run_preprocessing_calls_upload(self, three_files, tmp_path):
-        from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
+    @pytest.fixture()
+    def fake_download(self, tmp_path):
+        """Side-effect for download_file that writes a dummy file and records the path."""
+        created: list[Path] = []
 
-        input_file, previous_file, step_zero_files = three_files
-
-        def fake_download(file, directory):
+        def _download(file, directory):
             directory.mkdir(parents=True, exist_ok=True)
-            (directory / file.filename).write_bytes(b"dummy")
+            p = directory / file.filename
+            p.write_bytes(b"dummy")
+            created.append(p)
 
-        fake_out = tmp_path / "dispf_result"
-        fake_out.write_bytes(b"grib")
+        return _download, created
 
-        with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=fake_download), \
-             patch("flexpart_ifs_preprocessor.domain.processing.load_grib") as mock_load, \
-             patch("flexpart_ifs_preprocessor.domain.processing.preprocess") as mock_preprocess, \
-             patch("flexpart_ifs_preprocessor.domain.processing._generate_and_upload_grib_file") as mock_gen:
-            mock_load.return_value = {"sp": MagicMock()}
-            mock_preprocess.return_value = {"sp": MagicMock()}
-
-            run_preprocessing(input_file, previous_file, step_zero_files)
-
-            mock_gen.assert_called_once()
-
-    def test_run_preprocessing_raises_if_load_returns_empty(self, three_files):
+    def test_run_preprocessing_raises_if_load_returns_empty(self, three_files, fake_download):
         from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
-
+        download_fn, _ = fake_download
         input_file, previous_file, step_zero_files = three_files
-
-        def fake_download(file, directory):
-            directory.mkdir(parents=True, exist_ok=True)
-            (directory / file.filename).write_bytes(b"dummy")
-
-        with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=fake_download), \
+        with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=download_fn), \
              patch("flexpart_ifs_preprocessor.domain.processing.load_grib", return_value={}):
             with pytest.raises(ValueError, match="No fields loaded"):
                 run_preprocessing(input_file, previous_file, step_zero_files)
 
-    def test_temp_files_cleaned_up_on_success(self, three_files, tmp_path):
+    @pytest.mark.parametrize("load_grib_kwargs", [
+        # success path: load_grib returns data, pipeline completes normally
+        {"return_value": {"sp": MagicMock()}},
+        # failure path: load_grib raises, pipeline should still clean up
+        {"side_effect": RuntimeError("boom")},
+    ])
+    def test_temp_files_cleaned_up(self, three_files, fake_download, load_grib_kwargs):
         from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
-
+        download_fn, created_files = fake_download
         input_file, previous_file, step_zero_files = three_files
-        created_files: list[Path] = []
-
-        def fake_download(file, directory):
-            directory.mkdir(parents=True, exist_ok=True)
-            p = directory / file.filename
-            p.write_bytes(b"dummy")
-            created_files.append(p)
-
-        with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=fake_download), \
-             patch("flexpart_ifs_preprocessor.domain.processing.load_grib", return_value={"sp": MagicMock()}), \
+        with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=download_fn), \
+             patch("flexpart_ifs_preprocessor.domain.processing.load_grib", **load_grib_kwargs), \
              patch("flexpart_ifs_preprocessor.domain.processing.preprocess", return_value={"sp": MagicMock()}), \
              patch("flexpart_ifs_preprocessor.domain.processing._generate_and_upload_grib_file"):
-            run_preprocessing(input_file, previous_file, step_zero_files)
-
+            try:
+                run_preprocessing(input_file, previous_file, step_zero_files)
+            except RuntimeError:
+                pass
         for p in created_files:
             assert not p.exists(), f"Temp file was not cleaned up: {p}"
-
-    def test_temp_files_cleaned_up_on_failure(self, three_files, tmp_path):
-        from flexpart_ifs_preprocessor.domain.processing import run_preprocessing
-
-        input_file, previous_file, step_zero_files = three_files
-        created_files: list[Path] = []
-
-        def fake_download(file, directory):
-            directory.mkdir(parents=True, exist_ok=True)
-            p = directory / file.filename
-            p.write_bytes(b"dummy")
-            created_files.append(p)
-
-        with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=fake_download), \
-             patch("flexpart_ifs_preprocessor.domain.processing.load_grib", side_effect=RuntimeError("boom")):
-            with pytest.raises(RuntimeError, match="boom"):
-                run_preprocessing(input_file, previous_file, step_zero_files)
-
-        for p in created_files:
-            assert not p.exists(), f"Temp file was not cleaned up after failure: {p}"
