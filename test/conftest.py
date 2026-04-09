@@ -15,7 +15,8 @@ def set_test_env_vars(monkeypatch):
     monkeypatch.setenv("DYNAMODB_TABLE", "test-table")
     monkeypatch.setenv("SOURCE_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
     monkeypatch.setenv("SOURCE_S3_BUCKET_ARN", "source-bucket")
-    monkeypatch.setenv("TARGET_S3_BUCKET_NAME", "target-bucket")
+    monkeypatch.setenv("TARGET_S3_BUCKET_NAME_GLOBAL", "target-bucket-global")
+    monkeypatch.setenv("TARGET_S3_BUCKET_NAME_EUROPE", "target-bucket-europe")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
@@ -63,7 +64,7 @@ OPER_REF_TIME    = datetime(2026, 4, 8, 0, 0, 0, tzinfo=timezone.utc)
 OPER_REF_TIME_TS = int(OPER_REF_TIME.timestamp())
 OPER_PREFIX      = "raw/s4y_f2/data"
 OPER_SOURCE_BUCKET = "source-bucket"
-OPER_TARGET_BUCKET = "target-bucket"
+OPER_TARGET_BUCKET = "target-bucket-europe"
 
 OPER_DA_0H  = "s4y_f2_ifs-da_od_oper_an_20260408T000000Z_20260408T000000Z_0h"
 OPER_ENS_0H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T000000Z_0h"
