@@ -44,14 +44,19 @@ def run_preprocessing(input_file: IFSForecastFile,
 
 
 def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataArray], input_file: IFSForecastFile):
-    # Write FLEXPART-ready GRIB2 (one file per forecast step)
+    """Write FLEXPART-ready GRIB2 (one file per forecast step)"""
+
     logger.info("Writing GRIB2 file to %s ...", output_dir)
 
-    prefix = ""
     if input_file.domain == Feed.F1:
         prefix = "dispc"
+        bucket = os.environ['TARGET_S3_BUCKET_NAME_GLOBAL']
     elif input_file.domain == Feed.F2:
         prefix = "dispf"
+        bucket = os.environ['TARGET_S3_BUCKET_NAME_EUROPE']
+    else:
+        logger.error("Unknown feed/domain: %s", input_file.domain)
+        raise ValueError(f"Unknown feed/domain: {input_file.domain}")
 
     paths = write_grib(
         processed,
@@ -68,7 +73,6 @@ def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataAr
             }
         for path in paths:
             logger.info("Finished writing processed output at: %s", path.name)
-            bucket = os.environ['TARGET_S3_BUCKET_NAME']
             upload_to_s3(path, path.name, bucket, metadata)
             logger.info("Uploaded file to S3: %s", path.name)
     finally:
