@@ -2,6 +2,7 @@ import logging
 import os
 from pathlib import Path
 import uuid
+import json
 
 import boto3
 
@@ -40,7 +41,15 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
 
     logger.info('Object "%s" downloaded at %s', file.object_key, target_path)
 
-def upload_to_s3(file_path: Path, object_key: str, bucket: str) -> None:
+def upload_to_s3(file_path: Path, object_key: str, bucket: str, metadata: dict | None = None) -> None:
+
+    md = {}
+    if metadata:
+        md = {
+            'type': object_key,
+            'data': json.dumps(metadata)
+        }
+
     s3_client = boto3.client('s3')
-    s3_client.upload_file(str(file_path), bucket, object_key)
-    logger.info("Uploaded %s to s3://%s/%s",  file_path, bucket, object_key)
+    s3_client.upload_file(str(file_path), bucket, object_key, ExtraArgs={"Metadata": md})
+    logger.info("Uploaded %s to s3://%s/%s with metadata %s",  file_path, bucket, object_key, metadata)

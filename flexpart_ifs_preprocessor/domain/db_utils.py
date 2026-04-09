@@ -9,7 +9,6 @@ from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
 
 logger = logging.getLogger(__name__)
 
-db_client = boto3.resource('dynamodb')
 
 def write_product_index(event: IFSForecastFile) -> None:
 
@@ -25,13 +24,14 @@ def write_product_index(event: IFSForecastFile) -> None:
         'CreatedAt': creation_timestamp,
         'Status': 'PENDING',
     }
-
+    db_client = boto3.resource('dynamodb')
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     dynamodb_table.put_item(Item=message)
 
 
 def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
 
+    db_client = boto3.resource('dynamodb')
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     all_response = dynamodb_table.query(
         KeyConditionExpression='ReferenceTimePartitionKey = :ref_time',
@@ -84,6 +84,7 @@ def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
 def update_product_index_processed(object_key: str, reference_time: datetime) -> None:
     processed_timestamp = int(datetime.now(UTC).timestamp())
 
+    db_client = boto3.resource('dynamodb')
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     dynamodb_table.update_item(
         Key={

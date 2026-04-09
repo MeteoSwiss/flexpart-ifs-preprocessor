@@ -8,9 +8,6 @@ logging:
 app_name: Flexpart-IFS-Preprocessor
 main:
   s3:
-    input:
-      endpoint_url: https://object-store.os-api.cci1.ecmwf.int
-      name: ifs-model-data
     output:
       endpoint_url: https://object-store.os-api.cci1.ecmwf.int
       name: flexpart-input
