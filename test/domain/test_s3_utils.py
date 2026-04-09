@@ -63,7 +63,7 @@ def s3_client_with_target_bucket():
 class TestUploadToS3:
     def test_metadata_attached(self, s3_client_with_target_bucket):
         s3 = s3_client_with_target_bucket
-        metadata = {"model": "IFS", "date": "20260331", "step": 74}
+        metadata = {"model": "IFS_HRES", "date": "20260331", "step": 74}
         with tempfile.NamedTemporaryFile(delete=False) as tmp:
             tmp.write(DUMMY_CONTENT)
             tmp_path = Path(tmp.name)
@@ -74,7 +74,7 @@ class TestUploadToS3:
             # The metadata should carry a 'data' key with JSON privateMetadata
             assert "data" in stored_meta
             private = json.loads(stored_meta["data"])
-            assert private["privateMetadata"]["model"] == "IFS"
+            assert private["privateMetadata"]["model"] == "IFS_HRES"
         finally:
             tmp_path.unlink(missing_ok=True)
 

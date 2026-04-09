@@ -1,7 +1,6 @@
 import logging
 import os
 from datetime import datetime, UTC
-from functools import lru_cache
 
 import boto3
 
@@ -10,15 +9,6 @@ from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
 
 logger = logging.getLogger(__name__)
 
-
-@lru_cache(maxsize=1)
-def _get_db_client():
-    """Return a lazily-initialised DynamoDB resource (region resolved at call time)."""
-    return boto3.resource('dynamodb')
-
-
-# Backwards-compatible module-level alias consumed by tests via patch
-db_client = _get_db_client
 
 def write_product_index(event: IFSForecastFile) -> None:
 
@@ -34,14 +24,15 @@ def write_product_index(event: IFSForecastFile) -> None:
         'CreatedAt': creation_timestamp,
         'Status': 'PENDING',
     }
-
-    dynamodb_table = db_client().Table(os.environ['DYNAMODB_TABLE'])
+    db_client = boto3.resource('dynamodb')
+    dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     dynamodb_table.put_item(Item=message)
 
 
 def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
 
-    dynamodb_table = db_client().Table(os.environ['DYNAMODB_TABLE'])
+    db_client = boto3.resource('dynamodb')
+    dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     all_response = dynamodb_table.query(
         KeyConditionExpression='ReferenceTimePartitionKey = :ref_time',
         ExpressionAttributeValues={':ref_time': int(forecast_ref_time.timestamp())}
@@ -93,7 +84,8 @@ def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
 def update_product_index_processed(object_key: str, reference_time: datetime) -> None:
     processed_timestamp = int(datetime.now(UTC).timestamp())
 
-    dynamodb_table = db_client().Table(os.environ['DYNAMODB_TABLE'])
+    db_client = boto3.resource('dynamodb')
+    dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     dynamodb_table.update_item(
         Key={
             'ReferenceTimePartitionKey': int(reference_time.timestamp()),

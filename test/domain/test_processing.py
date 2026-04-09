@@ -172,7 +172,7 @@ class TestGenerateAndUploadGribFile:
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
         _, _, _, metadata = mock_upload.call_args.args
         assert set(metadata.keys()) == {"model", "date", "time", "step", "domain"}
-        assert metadata["model"] == "IFS"
+        assert metadata["model"] == "IFS-HRES-Europe"
         assert metadata["step"] == "74"
         assert metadata["domain"] == "EUROPE"
 

@@ -22,13 +22,14 @@ class Feed(Enum):
 
 class IFSForecastFile:
 
-    def __init__(self, object_key: str, filename: str, domain: Feed | None = None, forecast_ref_time: datetime | None = None, step: int | None = None, processed: bool = False):
+    def __init__(self, object_key: str, filename: str, domain: Feed | None = None, forecast_ref_time: datetime | None = None, step: int | None = None, processed: bool = False) -> None:
         self.object_key = object_key
         self.filename = filename
         self.processed = processed
         self.forecast_ref_time: datetime = forecast_ref_time or self._extract_datetime()
         self.step: int = int(step) if step is not None else self._extract_lead_time()
         self.domain = domain or self._extract_feed()
+        self.model = "IFS-HRES" if self.domain == Feed.F1 else "IFS-HRES-Europe" if self.domain == Feed.F2 else "unknown"
 
     def _extract_datetime(self) -> datetime:
         match = re.search(r'(\d{8}T\d{6}Z)', self.filename)

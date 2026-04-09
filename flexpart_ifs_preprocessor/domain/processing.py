@@ -61,7 +61,7 @@ def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataAr
         suffix="")
     try:
         metadata = {
-            "model": "IFS",
+            "model": input_file.model,
             "date": input_file.forecast_ref_time.strftime("%Y%m%d"),
             "time": input_file.forecast_ref_time.strftime("%H%M"),
             "step": str(input_file.step),

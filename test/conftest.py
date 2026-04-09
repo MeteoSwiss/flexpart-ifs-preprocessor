@@ -97,15 +97,9 @@ def mocked_aws():
         yield
 
 
-@pytest.fixture()
-def oper_dynamodb_table(mocked_aws):
-    """Create and pre-populate the DynamoDB table for the 4h scenario.
-
-    Inserts PENDING entries for DA-0h, ENS-0h and ENS-3h (the prerequisites
-    that must already exist before the 4h file arrives).
-    """
-    ddb = boto3.resource("dynamodb", region_name="eu-central-1")
-    table = ddb.create_table(
+def _make_ddb_table(ddb):
+    """Create the test DynamoDB table and return it."""
+    return ddb.create_table(
         TableName=DYNAMODB_TABLE_NAME,
         KeySchema=[
             {"AttributeName": "ReferenceTimePartitionKey", "KeyType": "HASH"},
@@ -117,6 +111,17 @@ def oper_dynamodb_table(mocked_aws):
         ],
         BillingMode="PAY_PER_REQUEST",
     )
+
+
+@pytest.fixture()
+def oper_dynamodb_table(mocked_aws):
+    """Create and pre-populate the DynamoDB table for the 4h scenario.
+
+    Inserts PENDING entries for DA-0h, ENS-0h and ENS-3h (the prerequisites
+    that must already exist before the 4h file arrives).
+    """
+    ddb = boto3.resource("dynamodb", region_name="eu-central-1")
+    table = _make_ddb_table(ddb)
     table.meta.client.get_waiter("table_exists").wait(TableName=DYNAMODB_TABLE_NAME)
     for filename, step in [(OPER_DA_0H, 0), (OPER_ENS_0H, 0), (OPER_ENS_3H, 3)]:
         table.put_item(Item={
@@ -162,9 +167,7 @@ def mocked_db_config(oper_dynamodb_table):
     application code tries to query it, and to obtain a DynamoDB resource
     that points at the same moto backend.
     """
-    ddb = boto3.resource("dynamodb", region_name="eu-central-1")
-    with patch("flexpart_ifs_preprocessor.domain.db_utils.db_client", return_value=ddb), \
-         patch("flexpart_ifs_preprocessor.domain.db_utils.CONFIG") as mock_cfg:
+    with patch("flexpart_ifs_preprocessor.domain.db_utils.CONFIG") as mock_cfg:
         mock_cfg.main.time_settings.tincr = 1
         yield
 
