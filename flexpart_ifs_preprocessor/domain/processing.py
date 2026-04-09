@@ -2,6 +2,7 @@ import contextlib
 import logging
 from pathlib import Path
 import os
+import tempfile
 from typing import Any, Generator
 
 from flexprep.io_grib import write_grib
@@ -18,11 +19,9 @@ logger = logging.getLogger(__name__)
 def run_preprocessing(input_file: IFSForecastFile,
                       previous_file: IFSForecastFile,
                       step_zero_files: list[IFSForecastFile]) -> None:
-    directory = Path("/tmp") / "data"
-
     # Download the files, skipping any that already exist in the temp directory
     logger.info("Downloading main file for processing: %s", input_file.object_key)
-    with _download_temp_files([input_file, previous_file] + step_zero_files, directory):
+    with _download_temp_files([input_file, previous_file] + step_zero_files) as directory:
         # Load raw fields
         logger.info("Loading GRIB source: %s", directory / input_file.filename)
 
@@ -80,14 +79,9 @@ def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataAr
 
 
 @contextlib.contextmanager
-def _download_temp_files(file_paths: list[IFSForecastFile], target_dir: Path) -> Generator[None, Any, None]:
-    try:
+def _download_temp_files(file_paths: list[IFSForecastFile]) -> Generator[Path, Any, None]:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        target_dir = Path(tmp_dir)
         for file in file_paths:
             download_file(file, target_dir)
-        yield
-    finally:
-        for file in file_paths:
-            logger.info("Deleting temp downloaded file: %s", file.filename)
-            # We only delete the file if it exists
-            if os.path.exists(target_dir / file.filename):
-                os.remove(target_dir / file.filename)
+        yield target_dir
