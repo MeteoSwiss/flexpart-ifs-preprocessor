@@ -71,10 +71,10 @@ class TestUploadToS3:
             upload_to_s3(tmp_path, "output/file.grib", TARGET_BUCKET, metadata)
             head = s3.head_object(Bucket=TARGET_BUCKET, Key="output/file.grib")
             stored_meta = head["Metadata"]
-            # The metadata should carry a 'data' key with JSON privateMetadata
+            # The metadata should carry a 'data' key with JSON metadata
             assert "data" in stored_meta
             private = json.loads(stored_meta["data"])
-            assert private["privateMetadata"]["model"] == "IFS_HRES"
+            assert private["model"] == "IFS_HRES"
         finally:
             tmp_path.unlink(missing_ok=True)
 

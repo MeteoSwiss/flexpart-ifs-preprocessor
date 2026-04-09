@@ -47,9 +47,7 @@ def upload_to_s3(file_path: Path, object_key: str, bucket: str, metadata: dict |
     if metadata:
         md = {
             'type': object_key,
-            'data': json.dumps({
-                "privateMetadata": metadata
-            })
+            'data': json.dumps(metadata)
         }
 
     s3_client = boto3.client('s3')
