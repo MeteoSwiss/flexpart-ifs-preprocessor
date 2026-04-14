@@ -27,7 +27,7 @@ def lambda_handler(event: ConsumerRecords, _: LambdaContext) -> None:
 
         write_product_index(file_event)
 
-        processable_steps, step_zero_files = get_steps_to_process(file_event.forecast_ref_time)
+        processable_steps, step_zero_files = get_steps_to_process(file_event.forecast_ref_time, file_event.domain)
         for file, prev_file in processable_steps:
             run_preprocessing(file, prev_file, step_zero_files)
 
