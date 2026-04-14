@@ -83,21 +83,6 @@ def ddb_table():
 
 
 class TestDynamodbItemToIFSForecastFile:
-    @pytest.mark.parametrize("status, expected_processed", [
-        ("PENDING", False),
-        ("PROCESSED", True),
-    ])
-    def test_status_maps_to_processed(self, status, expected_processed):
-        filename = _FILENAME_TEMPLATE.format(step=6)
-        item = {
-            "ReferenceTimePartitionKey": REF_TIME_KEY,
-            "ObjectKey": f"prefix/{filename}",
-            "LeadTime": 6,
-            "FileName": filename,
-            "Status": status,
-        }
-        f = dynamodb_item_to_ifs_forecast_file(item)
-        assert f.processed == expected_processed
 
     def test_forecast_ref_time_roundtrip(self):
         filename = _FILENAME_TEMPLATE.format(step=6)

@@ -5,12 +5,4 @@ logging:
   formatter: "standard"
   child_log_levels:
     mchpy: INFO
-app_name: Flexpart-IFS-Preprocessor
-main:
-  s3:
-    output:
-      endpoint_url: https://object-store.os-api.cci1.ecmwf.int
-      name: flexpart-input
-  time_settings:
-    tincr: 3
-    tstart: 0
+app_name: Flexpart IFS Preprocessor

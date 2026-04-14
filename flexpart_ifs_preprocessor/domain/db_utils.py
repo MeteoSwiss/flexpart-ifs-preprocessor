@@ -4,13 +4,13 @@ from datetime import datetime, UTC
 
 import boto3
 
-from flexpart_ifs_preprocessor import CONFIG
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
 
 logger = logging.getLogger(__name__)
 
 
 def write_product_index(event: IFSForecastFile) -> None:
+    """Write a new entry to the DynamoDB product index for the given file event."""
 
     # Adding created_at parameter for tracking files longevity
     creation_timestamp = int(datetime.now(UTC).timestamp())
@@ -22,14 +22,25 @@ def write_product_index(event: IFSForecastFile) -> None:
         'LeadTime': event.step,
         'FileName': event.filename,
         'CreatedAt': creation_timestamp,
-        'Status': 'PENDING',
+        f'Status_3h': 'PENDING',
+        f'Status_1h': 'PENDING',
     }
+    if event.domain == 'F1':
+        # For F1 (GLOBAL) files, only 3-hourly preprocessing is needed, so we can set the 1-hourly status to 'N/A'.
+        message['Status_1h'] = 'N/A'
+    elif event.domain == 'F2' and event.step % 3 != 0:
+        # For F2 (EUROPE) files that are not on 3-hourly steps, only 1-hourly preprocessing is needed, so we can set the 3-hourly status to 'N/A'.
+        message['Status_3h'] = 'N/A'
+
     db_client = boto3.resource('dynamodb')
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     dynamodb_table.put_item(Item=message)
 
 
-def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
+def get_steps_to_process(forecast_ref_time: datetime, tincr: int) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
+    """Query the DynamoDB product index for the given forecast reference time
+    and return a list of (file, previous_file) tuples to process,
+    along with a list of step=0 files."""
 
     db_client = boto3.resource('dynamodb')
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
@@ -39,7 +50,7 @@ def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSFor
     )
     all_items = all_response.get('Items', [])
     items_by_lead_time = {item['LeadTime']: item for item in all_items}  # fast lookup
-    pending_items = [item for item in all_items if item['Status'] == 'PENDING']
+    pending_items = [item for item in all_items if item[f'Status_{tincr}h'] == 'PENDING']
     step_zero_items = [dynamodb_item_to_ifs_forecast_file(item) for item in all_items if item['LeadTime'] == 0]
 
     items_to_process = []
@@ -55,7 +66,7 @@ def get_steps_to_process(forecast_ref_time: datetime) -> tuple[list[tuple[IFSFor
 
     for item in pending_items:
         lead_time = item['LeadTime']
-        prev_lead_time = lead_time - CONFIG.main.time_settings.tincr
+        prev_lead_time = lead_time - tincr
 
         logger.debug(f"Unprocessed item: ObjectKey={item['ObjectKey']}, LeadTime={item['LeadTime']}, CreatedAt={item['CreatedAt']}")
 
@@ -77,11 +88,10 @@ def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
         forecast_ref_time=datetime.fromtimestamp(int(item['ReferenceTimePartitionKey']), tz=UTC),
         step=item['LeadTime'],
         object_key=item['ObjectKey'],
-        filename=item['FileName'],
-        processed=item['Status'] == 'PROCESSED'
+        filename=item['FileName']
     )
 
-def update_product_index_processed(object_key: str, reference_time: datetime) -> None:
+def update_product_index_processed(object_key: str, reference_time: datetime, tincr: int) -> None:
     processed_timestamp = int(datetime.now(UTC).timestamp())
 
     db_client = boto3.resource('dynamodb')
@@ -91,10 +101,7 @@ def update_product_index_processed(object_key: str, reference_time: datetime) ->
             'ReferenceTimePartitionKey': int(reference_time.timestamp()),
             'ObjectKey': object_key,
         },
-        UpdateExpression='SET ProcessedAt = :processed_at, #s = :status',
-        ExpressionAttributeNames={
-            '#s': 'Status',  # 'Status' is a reserved word in DynamoDB
-        },
+        UpdateExpression=f'SET ProcessedAt = :processed_at, Status_{tincr}h = :status',
         ExpressionAttributeValues={
             ':processed_at': processed_timestamp,
             ':status': 'PROCESSED',

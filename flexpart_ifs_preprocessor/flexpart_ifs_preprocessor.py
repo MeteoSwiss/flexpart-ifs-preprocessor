@@ -3,7 +3,6 @@
 import json
 import logging
 import base64
-import re
 from typing import Any
 
 from aws_lambda_powertools.utilities.typing import LambdaContext
@@ -27,11 +26,28 @@ def lambda_handler(event: ConsumerRecords, _: LambdaContext) -> None:
 
         write_product_index(file_event)
 
-        processable_steps, step_zero_files = get_steps_to_process(file_event.forecast_ref_time)
-        for file, prev_file in processable_steps:
-            run_preprocessing(file, prev_file, step_zero_files)
+        # For F1 (GLOBAL) files, only 3-hourly preprocessing is needed, as FLEXPART
+        # global runs use 3-hourly NWP data with precipitation averaged over 3 hours.
+        #
+        # For F2 (EUROPE) files, preprocessing is run twice:
+        # - 1-hourly: for the FLEXPART-IFS-EUROPE domain (high-resolution regional runs)
+        # - 3-hourly: for nesting the Europe domain into the global runs, which requires
+        #   3-hourly NWP data with aggregated values (e.g. precipitation, fluxes) averaged
+        #   over 3 hours.
+        if file_event.domain == Feed.F1:
+            tincr_list = [3]
+        elif file_event.domain == Feed.F2 and file_event.step % 3 == 0:
+            tincr_list = [1,3]
+        elif file_event.domain == Feed.F2:
+            tincr_list = [1]
 
-            update_product_index_processed(file.object_key, file.forecast_ref_time)
+        for tincr in tincr_list:
+
+            processable_steps, step_zero_files = get_steps_to_process(file_event.forecast_ref_time, tincr)
+            for file, prev_file in processable_steps:
+                run_preprocessing(file, prev_file, step_zero_files, tincr)
+
+                update_product_index_processed(file.object_key, file.forecast_ref_time, tincr)
 
 
 def _kafka_event_to_input_data_aggregator_event(kafka_event: dict[str, Any]) -> InputDataAggregatorEvent:
