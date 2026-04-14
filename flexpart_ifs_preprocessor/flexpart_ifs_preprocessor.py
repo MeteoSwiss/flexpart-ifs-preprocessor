@@ -43,7 +43,7 @@ def lambda_handler(event: ConsumerRecords, _: LambdaContext) -> None:
 
         for tincr in tincr_list:
 
-            processable_steps, step_zero_files = get_steps_to_process(file_event.forecast_ref_time, tincr)
+            processable_steps, step_zero_files = get_steps_to_process(file_event.forecast_ref_time, file_event.domain, tincr)
             for file, prev_file in processable_steps:
                 run_preprocessing(file, prev_file, step_zero_files, tincr)
 

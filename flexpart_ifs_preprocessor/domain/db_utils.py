@@ -4,7 +4,7 @@ from datetime import datetime, UTC
 
 import boto3
 
-from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile
+from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +21,7 @@ def write_product_index(event: IFSForecastFile) -> None:
         'ReferenceTime': str(event.forecast_ref_time),
         'LeadTime': event.step,
         'FileName': event.filename,
+        'Domain': str(event.domain.value),
         'CreatedAt': creation_timestamp,
         f'Status_3h': 'PENDING',
         f'Status_1h': 'PENDING',
@@ -37,7 +38,7 @@ def write_product_index(event: IFSForecastFile) -> None:
     dynamodb_table.put_item(Item=message)
 
 
-def get_steps_to_process(forecast_ref_time: datetime, tincr: int) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
+def get_steps_to_process(forecast_ref_time: datetime, domain: Feed, tincr: int) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
     """Query the DynamoDB product index for the given forecast reference time
     and return a list of (file, previous_file) tuples to process,
     along with a list of step=0 files."""
@@ -46,7 +47,12 @@ def get_steps_to_process(forecast_ref_time: datetime, tincr: int) -> tuple[list[
     dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
     all_response = dynamodb_table.query(
         KeyConditionExpression='ReferenceTimePartitionKey = :ref_time',
-        ExpressionAttributeValues={':ref_time': int(forecast_ref_time.timestamp())}
+        FilterExpression='#domain = :domain',
+        ExpressionAttributeNames={'#domain': 'Domain'},
+        ExpressionAttributeValues={
+            ':ref_time': int(forecast_ref_time.timestamp()),
+            ':domain': str(domain.value),
+        }
     )
     all_items = all_response.get('Items', [])
     items_by_lead_time = {item['LeadTime']: item for item in all_items}  # fast lookup
@@ -88,7 +94,8 @@ def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
         forecast_ref_time=datetime.fromtimestamp(int(item['ReferenceTimePartitionKey']), tz=UTC),
         step=item['LeadTime'],
         object_key=item['ObjectKey'],
-        filename=item['FileName']
+        filename=item['FileName'],
+        domain=Feed(item['Domain'])
     )
 
 def update_product_index_processed(object_key: str, reference_time: datetime, tincr: int) -> None:

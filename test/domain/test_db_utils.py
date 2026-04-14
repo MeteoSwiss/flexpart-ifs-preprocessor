@@ -26,6 +26,7 @@ FORECAST_REF_TIME = datetime(2026, 3, 31, 6, 0, 0, tzinfo=timezone.utc)
 REF_TIME_KEY = int(FORECAST_REF_TIME.timestamp())
 
 _FILENAME_TEMPLATE = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_{step}h"
+_F1_FILENAME_TEMPLATE = "s4y_f1_ifs-hres_od_scda_fc_20260331T060000Z_20260403T080000Z_{step}h"
 
 def _make_file(step: int, processed: bool = False) -> IFSForecastFile:
     filename = _FILENAME_TEMPLATE.format(step=step)
@@ -58,6 +59,7 @@ def _put_items(table, items: list[tuple[int, str]]) -> None:
             "ReferenceTime": str(FORECAST_REF_TIME),
             "LeadTime": step,
             "FileName": filename,
+            "Domain": "EUROPE",
             "CreatedAt": 0,
             "Status": status,
         })
@@ -67,6 +69,21 @@ def _put_item(table, step: int, status: str = "PENDING") -> None:
     """Convenience wrapper for inserting a single item (no duplicate-step handling)."""
     _put_items(table, [(step, status)])
 
+
+def _put_domain_item(table, step: int, domain: Feed, status: str = "PENDING", prefix: str = "prefix") -> None:
+    """Insert a single item for the given domain using the appropriate filename template."""
+    template = _FILENAME_TEMPLATE if domain == Feed.F2 else _F1_FILENAME_TEMPLATE
+    filename = template.format(step=step)
+    table.put_item(Item={
+        "ReferenceTimePartitionKey": REF_TIME_KEY,
+        "ObjectKey": f"{prefix}/{filename}",
+        "ReferenceTime": str(FORECAST_REF_TIME),
+        "LeadTime": step,
+        "FileName": filename,
+        "Domain": domain.value,
+        "CreatedAt": 0,
+        "Status": status,
+    })
 
 
 @pytest.fixture
@@ -91,6 +108,7 @@ class TestDynamodbItemToIFSForecastFile:
             "ObjectKey": f"prefix/{filename}",
             "LeadTime": 6,
             "FileName": filename,
+            "Domain": "EUROPE",
             "Status": "PENDING",
         }
         f = dynamodb_item_to_ifs_forecast_file(item)
@@ -103,6 +121,7 @@ class TestDynamodbItemToIFSForecastFile:
             "ObjectKey": f"prefix/{filename}",
             "LeadTime": 12,
             "FileName": filename,
+            "Domain": "EUROPE",
             "Status": "PENDING",
         }
         f = dynamodb_item_to_ifs_forecast_file(item)
@@ -116,6 +135,7 @@ class TestDynamodbItemToIFSForecastFile:
             "ObjectKey": key,
             "LeadTime": 6,
             "FileName": filename,
+            "Domain": "EUROPE",
             "Status": "PENDING",
         }
         f = dynamodb_item_to_ifs_forecast_file(item)
@@ -155,7 +175,7 @@ class TestGetStepsToProcess:
         """Populate table with (step, status) items and call get_steps_to_process."""
         _put_items(table, items)
 
-        return get_steps_to_process(FORECAST_REF_TIME)
+        return get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
 
     def test_returns_empty_when_no_step_zero(self, ddb_table):
 
@@ -226,6 +246,51 @@ class TestGetStepsToProcess:
         statuses.append((0, "PROCESSED"))
         items_to_process, _ = self._run(ddb_table, statuses)
         assert len(items_to_process) == len(pending_steps)
+
+    def test_ignores_predecessor_from_different_domain(self, ddb_table):
+        """A PENDING F2 step=6 must not be queued when only an F1 step=3 exists.
+
+        The step=3 predecessor is present in DynamoDB but belongs to a different
+        domain (F1/GLOBAL).  The query must filter it out so that step=6 is not
+        treated as processable.
+        """
+        # Two F2 step=0 files satisfy the gate condition
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED", prefix="prefix2")
+        # Only F1 has step=3 – the F2 predecessor is missing
+        _put_domain_item(ddb_table, step=3, domain=Feed.F1, status="PROCESSED")
+        _put_domain_item(ddb_table, step=6, domain=Feed.F2, status="PENDING")
+
+        items_to_process, _ = get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
+
+        assert items_to_process == [], (
+            "step=6 should not be queued because its F2 predecessor (step=3) is absent"
+        )
+
+    def test_only_returns_items_for_requested_domain(self, ddb_table):
+        """Results must contain only items belonging to the requested domain.
+
+        When both F1 and F2 items are present for the same reference time,
+        querying for F2 must return step-zero files and processable pairs
+        exclusively from F2.
+        """
+        # F2: full chain – two step=0, step=3 PROCESSED, step=6 PENDING
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED", prefix="prefix2")
+        _put_domain_item(ddb_table, step=3, domain=Feed.F2, status="PROCESSED")
+        _put_domain_item(ddb_table, step=6, domain=Feed.F2, status="PENDING")
+        # F1: also has items in the same table
+        _put_domain_item(ddb_table, step=0, domain=Feed.F1, status="PROCESSED", prefix="f1prefix")
+        _put_domain_item(ddb_table, step=3, domain=Feed.F1, status="PROCESSED", prefix="f1prefix")
+
+        items_to_process, zeros = get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
+
+        assert all(z.domain == Feed.F2 for z in zeros), "step-zero list must contain only F2 items"
+        assert len(zeros) == 2
+        assert len(items_to_process) == 1
+        current, prev = items_to_process[0]
+        assert current.domain == Feed.F2
+        assert prev.domain == Feed.F2
 
 
 # ---------------------------------------------------------------------------
