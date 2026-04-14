@@ -131,6 +131,7 @@ def oper_dynamodb_table(mocked_aws):
             "ReferenceTime": str(OPER_REF_TIME),
             "LeadTime": step,
             "FileName": filename,
+            "Domain": "EUROPE",
             "CreatedAt": 0,
             "Status": "PENDING",
         })
