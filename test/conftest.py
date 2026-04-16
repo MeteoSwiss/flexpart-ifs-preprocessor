@@ -133,7 +133,8 @@ def oper_dynamodb_table(mocked_aws):
             "FileName": filename,
             "Domain": "EUROPE",
             "CreatedAt": 0,
-            "Status": "PENDING",
+            "Status_1h": "PENDING",
+            "Status_3h": "PENDING"
         })
     yield table
 
@@ -162,19 +163,6 @@ def oper_s3_buckets(mocked_aws):
 
 
 @pytest.fixture()
-def mocked_db_config(oper_dynamodb_table):
-    """Patch db_client to use the moto DynamoDB backend and set tincr=1.
-
-    Depends on ``oper_dynamodb_table`` to ensure the table exists before the
-    application code tries to query it, and to obtain a DynamoDB resource
-    that points at the same moto backend.
-    """
-    with patch("flexpart_ifs_preprocessor.domain.db_utils.CONFIG") as mock_cfg:
-        mock_cfg.main.time_settings.tincr = 1
-        yield
-
-
-@pytest.fixture()
-def aws_4h_environment(oper_dynamodb_table, oper_s3_buckets, mocked_db_config):
+def aws_4h_environment(oper_dynamodb_table, oper_s3_buckets):
     """Compose the three 4h scenario fixtures into a single environment handle."""
     yield Step4Test(table=oper_dynamodb_table, s3=oper_s3_buckets)

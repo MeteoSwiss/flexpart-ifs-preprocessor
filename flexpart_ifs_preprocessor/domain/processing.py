@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 def run_preprocessing(input_file: IFSForecastFile,
                       previous_file: IFSForecastFile,
                       step_zero_files: list[IFSForecastFile],
-                      tincr: int) -> None:
+                      tincr: int = 1) -> None:
     # Download the files, skipping any that already exist in the temp directory
     logger.info("Downloading main file for processing: %s", input_file.object_key)
     with _download_temp_files([input_file, previous_file] + step_zero_files) as directory:
@@ -47,7 +47,7 @@ def run_preprocessing(input_file: IFSForecastFile,
 def _generate_and_upload_grib_file(output_dir: Path,
                                    processed: dict[str, DataArray],
                                    input_file: IFSForecastFile,
-                                   tincr: int) -> None:
+                                   tincr: int = 1) -> None:
     """Write FLEXPART-ready GRIB2 (one file per forecast step)"""
 
     logger.info("Writing GRIB2 file to %s ...", output_dir)
@@ -56,6 +56,9 @@ def _generate_and_upload_grib_file(output_dir: Path,
         prefix = "dispc"
         bucket = os.environ['TARGET_S3_BUCKET_NAME_GLOBAL']
     elif input_file.domain == Feed.F2 and tincr == 3:
+        prefix = "dispf"
+        bucket = os.environ['TARGET_S3_BUCKET_NAME_GLOBAL']
+    elif input_file.domain == Feed.F2 and tincr == 1:
         prefix = "dispf"
         bucket = os.environ['TARGET_S3_BUCKET_NAME_EUROPE']
     else:

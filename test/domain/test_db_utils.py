@@ -25,18 +25,8 @@ from conftest import _make_ddb_table
 FORECAST_REF_TIME = datetime(2026, 3, 31, 6, 0, 0, tzinfo=timezone.utc)
 REF_TIME_KEY = int(FORECAST_REF_TIME.timestamp())
 
-_FILENAME_TEMPLATE = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_{step}h"
+_F2_FILENAME_TEMPLATE = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_{step}h"
 _F1_FILENAME_TEMPLATE = "s4y_f1_ifs-hres_od_scda_fc_20260331T060000Z_20260403T080000Z_{step}h"
-
-def _make_file(step: int, processed: bool = False) -> IFSForecastFile:
-    filename = _FILENAME_TEMPLATE.format(step=step)
-    return IFSForecastFile(
-        object_key=f"prefix/{filename}",
-        filename=filename,
-        forecast_ref_time=FORECAST_REF_TIME,
-        step=step,
-        processed=processed,
-    )
 
 
 def _put_items(table, items: list[tuple[int, str]]) -> None:
@@ -52,7 +42,7 @@ def _put_items(table, items: list[tuple[int, str]]) -> None:
         idx = step_counts.get(step, 0)
         step_counts[step] = idx + 1
         prefix = "prefix" if idx == 0 else f"prefix{idx + 1}"
-        filename = _FILENAME_TEMPLATE.format(step=step)
+        filename = _F2_FILENAME_TEMPLATE.format(step=step)
         table.put_item(Item={
             "ReferenceTimePartitionKey": REF_TIME_KEY,
             "ObjectKey": f"{prefix}/{filename}",
@@ -61,7 +51,8 @@ def _put_items(table, items: list[tuple[int, str]]) -> None:
             "FileName": filename,
             "Domain": "EUROPE",
             "CreatedAt": 0,
-            "Status": status,
+            "Status_1h": status,
+            "Status_3h": status
         })
 
 
@@ -70,9 +61,9 @@ def _put_item(table, step: int, status: str = "PENDING") -> None:
     _put_items(table, [(step, status)])
 
 
-def _put_domain_item(table, step: int, domain: Feed, status: str = "PENDING", prefix: str = "prefix") -> None:
+def _put_domain_item(table, step: int, domain: Feed, status1: str = "PENDING", status3: str = "PENDING", prefix: str = "prefix") -> None:
     """Insert a single item for the given domain using the appropriate filename template."""
-    template = _FILENAME_TEMPLATE if domain == Feed.F2 else _F1_FILENAME_TEMPLATE
+    template = _F2_FILENAME_TEMPLATE if domain == Feed.F2 else _F1_FILENAME_TEMPLATE
     filename = template.format(step=step)
     table.put_item(Item={
         "ReferenceTimePartitionKey": REF_TIME_KEY,
@@ -82,7 +73,8 @@ def _put_domain_item(table, step: int, domain: Feed, status: str = "PENDING", pr
         "FileName": filename,
         "Domain": domain.value,
         "CreatedAt": 0,
-        "Status": status,
+        "Status_1h": status1,
+        "Status_3h": status3
     })
 
 
@@ -102,7 +94,7 @@ def ddb_table():
 class TestDynamodbItemToIFSForecastFile:
 
     def test_forecast_ref_time_roundtrip(self):
-        filename = _FILENAME_TEMPLATE.format(step=6)
+        filename = _F2_FILENAME_TEMPLATE.format(step=6)
         item = {
             "ReferenceTimePartitionKey": REF_TIME_KEY,
             "ObjectKey": f"prefix/{filename}",
@@ -115,7 +107,7 @@ class TestDynamodbItemToIFSForecastFile:
         assert f.forecast_ref_time == FORECAST_REF_TIME
 
     def test_step_stored(self):
-        filename = _FILENAME_TEMPLATE.format(step=12)
+        filename = _F2_FILENAME_TEMPLATE.format(step=12)
         item = {
             "ReferenceTimePartitionKey": REF_TIME_KEY,
             "ObjectKey": f"prefix/{filename}",
@@ -128,7 +120,7 @@ class TestDynamodbItemToIFSForecastFile:
         assert f.step == 12
 
     def test_object_key_stored(self):
-        filename = _FILENAME_TEMPLATE.format(step=6)
+        filename = _F2_FILENAME_TEMPLATE.format(step=6)
         key = f"prefix/{filename}"
         item = {
             "ReferenceTimePartitionKey": REF_TIME_KEY,
@@ -150,7 +142,14 @@ class TestDynamodbItemToIFSForecastFile:
 class TestWriteProductIndex:
     def test_writes_item_to_table(self, ddb_table):
 
-        f = _make_file(step=6)
+        filename = _F2_FILENAME_TEMPLATE.format(step=6)
+        f = IFSForecastFile(
+            object_key=f"prefix/{filename}",
+            filename=filename,
+            forecast_ref_time=FORECAST_REF_TIME,
+            step=6
+        )
+
         write_product_index(f)
         item = ddb_table.get_item(
             Key={
@@ -159,7 +158,8 @@ class TestWriteProductIndex:
             }
         )["Item"]
         assert item["LeadTime"] == 6
-        assert item["Status"] == "PENDING"
+        assert item["Status_1h"] == "PENDING"
+        assert item["Status_3h"] == "PENDING"
         assert item["FileName"] == f.filename
         assert "CreatedAt" in item
 
@@ -175,7 +175,7 @@ class TestGetStepsToProcess:
         """Populate table with (step, status) items and call get_steps_to_process."""
         _put_items(table, items)
 
-        return get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
+        return get_steps_to_process(FORECAST_REF_TIME, Feed.F2, tincr=3)
 
     def test_returns_empty_when_no_step_zero(self, ddb_table):
 
@@ -205,6 +205,7 @@ class TestGetStepsToProcess:
             ddb_table,
             [(0, "PROCESSED"), (0, "PROCESSED"), (3, "PROCESSED"), (6, "PENDING")],
         )
+
         assert len(items_to_process) == 1
         current, prev = items_to_process[0]
         assert current.step == 6
@@ -255,11 +256,11 @@ class TestGetStepsToProcess:
         treated as processable.
         """
         # Two F2 step=0 files satisfy the gate condition
-        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED")
-        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED", prefix="prefix2")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status1="PROCESSED")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status1="PROCESSED", prefix="prefix2")
         # Only F1 has step=3 – the F2 predecessor is missing
-        _put_domain_item(ddb_table, step=3, domain=Feed.F1, status="PROCESSED")
-        _put_domain_item(ddb_table, step=6, domain=Feed.F2, status="PENDING")
+        _put_domain_item(ddb_table, step=3, domain=Feed.F1, status1="PROCESSED")
+        _put_domain_item(ddb_table, step=6, domain=Feed.F2, status1="PENDING")
 
         items_to_process, _ = get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
 
@@ -275,15 +276,15 @@ class TestGetStepsToProcess:
         exclusively from F2.
         """
         # F2: full chain – two step=0, step=3 PROCESSED, step=6 PENDING
-        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED")
-        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status="PROCESSED", prefix="prefix2")
-        _put_domain_item(ddb_table, step=3, domain=Feed.F2, status="PROCESSED")
-        _put_domain_item(ddb_table, step=6, domain=Feed.F2, status="PENDING")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status3="PROCESSED")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F2, status3="PROCESSED", prefix="prefix2")
+        _put_domain_item(ddb_table, step=3, domain=Feed.F2, status3="PROCESSED")
+        _put_domain_item(ddb_table, step=6, domain=Feed.F2, status3="PENDING")
         # F1: also has items in the same table
-        _put_domain_item(ddb_table, step=0, domain=Feed.F1, status="PROCESSED", prefix="f1prefix")
-        _put_domain_item(ddb_table, step=3, domain=Feed.F1, status="PROCESSED", prefix="f1prefix")
+        _put_domain_item(ddb_table, step=0, domain=Feed.F1, status3="PROCESSED", prefix="f1prefix")
+        _put_domain_item(ddb_table, step=3, domain=Feed.F1, status3="PROCESSED", prefix="f1prefix")
 
-        items_to_process, zeros = get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
+        items_to_process, zeros = get_steps_to_process(FORECAST_REF_TIME, Feed.F2, tincr=3)
 
         assert all(z.domain == Feed.F2 for z in zeros), "step-zero list must contain only F2 items"
         assert len(zeros) == 2
@@ -302,7 +303,7 @@ class TestUpdateProductIndexProcessed:
     def test_processed_at_is_set(self, ddb_table):
 
         _put_item(ddb_table, step=6, status="PENDING")
-        filename = _FILENAME_TEMPLATE.format(step=6)
+        filename = _F2_FILENAME_TEMPLATE.format(step=6)
         object_key = f"prefix/{filename}"
 
         update_product_index_processed(object_key, FORECAST_REF_TIME)

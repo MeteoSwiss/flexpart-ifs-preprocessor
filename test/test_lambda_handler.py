@@ -174,7 +174,7 @@ class TestLambdaHandler:
              patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.update_product_index_processed", mocks["update_product_index_processed"]):
             lambda_handler(event, MagicMock())
 
-        mocks["run_preprocessing"].assert_called_once_with(real_file, real_prev, real_zeros)
+        mocks["run_preprocessing"].assert_called_once_with(real_file, real_prev, real_zeros, 1)
 
     def test_multiple_files_in_event_each_processed_independently(self):
         mocks = self._make_mocks()

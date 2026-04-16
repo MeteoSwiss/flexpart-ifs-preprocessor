@@ -61,8 +61,11 @@ class TestProcess4hEndToEnd:
             "ObjectKey": f"{OPER_PREFIX}/{OPER_ENS_4H}",
         }).get("Item")
         assert item is not None, "4h DynamoDB item not found"
-        assert item["Status"] == "PROCESSED", (
+        assert item["Status_1h"] == "PROCESSED", (
             f"Expected Status=PROCESSED for the 4h item, got: {item['Status']}"
+        )
+        assert item["Status_3h"] == "PENDING", (
+            f"Expected Status=PENDING for the 4h item, got: {item['Status']}"
         )
 
     def test_prerequisite_items_remain_pending(self, aws_4h_environment):
@@ -77,6 +80,9 @@ class TestProcess4hEndToEnd:
                 "ObjectKey": f"{OPER_PREFIX}/{filename}",
             }).get("Item")
             assert item is not None, f"Item for {filename} not found in DynamoDB"
-            assert item["Status"] == "PENDING", (
+            assert item["Status_1h"] == "PENDING", (
+                f"{filename} should still be PENDING but got: {item['Status']}"
+            )
+            assert item["Status_3h"] == "PENDING", (
                 f"{filename} should still be PENDING but got: {item['Status']}"
             )

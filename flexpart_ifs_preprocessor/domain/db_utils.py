@@ -38,7 +38,7 @@ def write_product_index(event: IFSForecastFile) -> None:
     dynamodb_table.put_item(Item=message)
 
 
-def get_steps_to_process(forecast_ref_time: datetime, domain: Feed, tincr: int) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
+def get_steps_to_process(forecast_ref_time: datetime, domain: Feed, tincr: int = 1) -> tuple[list[tuple[IFSForecastFile, IFSForecastFile]], list[IFSForecastFile]]:
     """Query the DynamoDB product index for the given forecast reference time
     and return a list of (file, previous_file) tuples to process,
     along with a list of step=0 files."""
@@ -98,7 +98,7 @@ def dynamodb_item_to_ifs_forecast_file(item: dict) -> IFSForecastFile:
         domain=Feed(item['Domain'])
     )
 
-def update_product_index_processed(object_key: str, reference_time: datetime, tincr: int) -> None:
+def update_product_index_processed(object_key: str, reference_time: datetime, tincr: int = 1) -> None:
     processed_timestamp = int(datetime.now(UTC).timestamp())
 
     db_client = boto3.resource('dynamodb')
