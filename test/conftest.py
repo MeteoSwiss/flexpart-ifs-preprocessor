@@ -64,7 +64,8 @@ OPER_REF_TIME    = datetime(2026, 4, 8, 0, 0, 0, tzinfo=timezone.utc)
 OPER_REF_TIME_TS = int(OPER_REF_TIME.timestamp())
 OPER_PREFIX      = "raw/s4y_f2/data"
 OPER_SOURCE_BUCKET = "source-bucket"
-OPER_TARGET_BUCKET = "target-bucket-europe"
+OPER_TARGET_BUCKET_GLOBAL = "target-bucket-global"
+OPER_TARGET_BUCKET_EU = "target-bucket-europe"
 
 OPER_DA_0H  = "s4y_f2_ifs-da_od_oper_an_20260408T000000Z_20260408T000000Z_0h"
 OPER_ENS_0H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T000000Z_0h"
@@ -148,7 +149,7 @@ def oper_s3_buckets(mocked_aws):
     """
     _resources = Path(__file__).parent / "resources"
     s3 = boto3.client("s3", region_name="eu-central-1")
-    for bucket in (OPER_SOURCE_BUCKET, OPER_TARGET_BUCKET):
+    for bucket in (OPER_SOURCE_BUCKET, OPER_TARGET_BUCKET_EU, OPER_TARGET_BUCKET_GLOBAL):
         s3.create_bucket(
             Bucket=bucket,
             CreateBucketConfiguration={"LocationConstraint": "eu-central-1"},

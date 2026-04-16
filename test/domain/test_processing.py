@@ -136,7 +136,7 @@ class TestGenerateAndUploadGribFile:
         )
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]) as mock_write, \
              patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3"):
-            _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
+            _generate_and_upload_grib_file(tmp_path, processed_fields, input_file, tincr=3)
             assert mock_write.call_args.kwargs["prefix"] == expected_prefix
 
     def test_upload_called_for_each_written_path(self, processed_fields, input_file, tmp_path):

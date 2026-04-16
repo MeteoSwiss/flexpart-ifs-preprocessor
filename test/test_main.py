@@ -25,7 +25,7 @@ from conftest import (
     OPER_ENS_3H,
     OPER_PREFIX,
     OPER_REF_TIME_TS,
-    OPER_TARGET_BUCKET,
+    OPER_TARGET_BUCKET_EU,
     _kafka_event,
 )
 
@@ -43,7 +43,7 @@ class TestProcess4hEndToEnd:
 
         lambda_handler(_kafka_event(OPER_ENS_4H), None)
 
-        resp = aws_4h_environment.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET)
+        resp = aws_4h_environment.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_EU)
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket"
         keys = [obj["Key"] for obj in resp["Contents"]]
         assert any(k.startswith("dispf") for k in keys), (

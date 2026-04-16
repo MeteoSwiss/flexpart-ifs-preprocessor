@@ -52,18 +52,16 @@ def _generate_and_upload_grib_file(output_dir: Path,
 
     logger.info("Writing GRIB2 file to %s ...", output_dir)
 
-    if input_file.domain == Feed.F1:
-        prefix = "dispc"
-        bucket = os.environ['TARGET_S3_BUCKET_NAME_GLOBAL']
-    elif input_file.domain == Feed.F2 and tincr == 3:
-        prefix = "dispf"
-        bucket = os.environ['TARGET_S3_BUCKET_NAME_GLOBAL']
-    elif input_file.domain == Feed.F2 and tincr == 1:
-        prefix = "dispf"
-        bucket = os.environ['TARGET_S3_BUCKET_NAME_EUROPE']
-    else:
-        logger.error("Unknown feed/domain: %s", input_file.domain)
-        raise ValueError(f"Unknown feed/domain: {input_file.domain}")
+    _UPLOAD_CONFIG: dict[tuple[Feed, int], tuple[str, str]] = {
+        (Feed.F1, 3):    ("dispc", os.environ["TARGET_S3_BUCKET_NAME_GLOBAL"]),
+        (Feed.F2, 3):    ("dispf", os.environ["TARGET_S3_BUCKET_NAME_GLOBAL"]),
+        (Feed.F2, 1):    ("dispf", os.environ["TARGET_S3_BUCKET_NAME_EUROPE"]),
+    }
+
+    config = _UPLOAD_CONFIG.get((input_file.domain, tincr))
+    if config is None:
+        raise ValueError(f"Unknown feed/domain combination: {input_file.domain=}, {tincr=}")
+    prefix, bucket = config
 
     paths = write_grib(
         processed,
