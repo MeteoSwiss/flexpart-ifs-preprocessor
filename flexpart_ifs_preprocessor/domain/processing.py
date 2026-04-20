@@ -8,10 +8,12 @@ from typing import Any, Generator
 from flexprep.io_grib import write_grib
 from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
+from xarray import DataArray
 
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
-from xarray import DataArray
+from flexpart_ifs_preprocessor import CONFIG
+
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +55,9 @@ def _generate_and_upload_grib_file(output_dir: Path,
     logger.info("Writing GRIB2 file to %s ...", output_dir)
 
     _UPLOAD_CONFIG: dict[tuple[Feed, int], tuple[str, str]] = {
-        (Feed.F1, 3):    ("dispc", os.environ["TARGET_S3_BUCKET_NAME_GLOBAL"]),
-        (Feed.F2, 3):    ("dispf", os.environ["TARGET_S3_BUCKET_NAME_GLOBAL"]),
-        (Feed.F2, 1):    ("dispf", os.environ["TARGET_S3_BUCKET_NAME_EUROPE"]),
+        (Feed.F1, 3):    ("dispc", CONFIG.main.target_s3_bucket_name_global),
+        (Feed.F2, 3):    ("dispf", CONFIG.main.target_s3_bucket_name_global),
+        (Feed.F2, 1):    ("dispf", CONFIG.main.target_s3_bucket_name_europe),
     }
 
     config = _UPLOAD_CONFIG.get((input_file.domain, tincr))

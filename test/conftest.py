@@ -12,11 +12,11 @@ from moto import mock_aws
 
 @pytest.fixture(autouse=True)
 def set_test_env_vars(monkeypatch):
-    monkeypatch.setenv("DYNAMODB_TABLE", "test-table")
-    monkeypatch.setenv("SOURCE_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
-    monkeypatch.setenv("SOURCE_S3_BUCKET_ARN", "source-bucket")
-    monkeypatch.setenv("TARGET_S3_BUCKET_NAME_GLOBAL", "target-bucket-global")
-    monkeypatch.setenv("TARGET_S3_BUCKET_NAME_EUROPE", "target-bucket-europe")
+    monkeypatch.setenv("MAIN__DYNAMODB_TABLE_NAME", "test-table")
+    monkeypatch.setenv("MAIN__SOURCE_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
+    monkeypatch.setenv("MAIN__SOURCE_S3_BUCKET_ARN", "source-bucket")
+    monkeypatch.setenv("MAIN__TARGET_S3_BUCKET_NAME_GLOBAL", "target-bucket-global")
+    monkeypatch.setenv("MAIN__TARGET_S3_BUCKET_NAME_EUROPE", "target-bucket-europe")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
@@ -84,7 +84,7 @@ def _kafka_event(filename: str, prefix: str = OPER_PREFIX) -> dict:
 
 
 @dataclass
-class Step4Test:
+class IntegrationTest:
     """Holds live moto AWS handles for the 4h processing integration scenario."""
     table: object  # boto3 Table resource for the test DynamoDB table
     s3: object     # boto3 S3 client
@@ -117,16 +117,54 @@ def _make_ddb_table(ddb):
 
 
 @pytest.fixture(scope="function")
-def oper_dynamodb_table(mocked_aws):
+def oper_dynamodb_table_4h(mocked_aws, request):
     """Create and pre-populate the DynamoDB table for the 4h scenario.
 
     Inserts PENDING entries for DA-0h, ENS-0h and ENS-3h (the prerequisites
     that must already exist before the 4h file arrives).
     """
+
+    entries = [
+        (OPER_DA_0H, 0),
+        (OPER_ENS_0H, 0),
+        (OPER_ENS_3H, 3),
+    ]
+
     ddb = boto3.resource("dynamodb", region_name="eu-central-1")
     table = _make_ddb_table(ddb)
     table.meta.client.get_waiter("table_exists").wait(TableName=DYNAMODB_TABLE_NAME)
-    for filename, step in [(OPER_DA_0H, 0), (OPER_ENS_0H, 0), (OPER_ENS_2H, 2), (OPER_ENS_3H, 3)]:
+    for filename, step in entries:
+        table.put_item(Item={
+            "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
+            "ObjectKey": f"{OPER_PREFIX}/{filename}",
+            "ReferenceTime": str(OPER_REF_TIME),
+            "LeadTime": step,
+            "FileName": filename,
+            "Domain": "EUROPE",
+            "CreatedAt": 0,
+            "Status_1h": "PENDING",
+            "Status_3h": "PENDING"
+        })
+    yield table
+
+@pytest.fixture(scope="function")
+def oper_dynamodb_table_3h(mocked_aws, request):
+    """Create and pre-populate the DynamoDB table for the 4h scenario.
+
+    Inserts PENDING entries for DA-0h, ENS-0h, ENS-2h, (the prerequisites
+    that must already exist before the 3h file arrives).
+    """
+
+    entries = [
+        (OPER_DA_0H, 0),
+        (OPER_ENS_0H, 0),
+        (OPER_ENS_2H, 2),
+    ]
+
+    ddb = boto3.resource("dynamodb", region_name="eu-central-1")
+    table = _make_ddb_table(ddb)
+    table.meta.client.get_waiter("table_exists").wait(TableName=DYNAMODB_TABLE_NAME)
+    for filename, step in entries:
         table.put_item(Item={
             "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
             "ObjectKey": f"{OPER_PREFIX}/{filename}",
@@ -165,6 +203,11 @@ def oper_s3_buckets(mocked_aws):
 
 
 @pytest.fixture()
-def aws_environment(oper_dynamodb_table, oper_s3_buckets):
-    """Compose the three 4h scenario fixtures into a single environment handle."""
-    yield Step4Test(table=oper_dynamodb_table, s3=oper_s3_buckets)
+def aws_environment_3h(oper_dynamodb_table_3h, oper_s3_buckets):
+    """Compose the 3h scenario fixtures into a single environment handle."""
+    yield IntegrationTest(table=oper_dynamodb_table_3h, s3=oper_s3_buckets)
+
+@pytest.fixture()
+def aws_environment_4h(oper_dynamodb_table_4h, oper_s3_buckets):
+    """Compose the 4h scenario fixtures into a single environment handle."""
+    yield IntegrationTest(table=oper_dynamodb_table_4h, s3=oper_s3_buckets)

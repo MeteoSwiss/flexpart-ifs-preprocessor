@@ -5,6 +5,7 @@ from datetime import datetime, UTC
 import boto3
 
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
+from flexpart_ifs_preprocessor import CONFIG
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ def write_product_index(event: IFSForecastFile) -> None:
         message['Status_3h'] = 'N/A'
 
     db_client = boto3.resource('dynamodb')
-    dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
+    dynamodb_table = db_client.Table(CONFIG.main.dynamodb_table_name)
     dynamodb_table.put_item(Item=message)
 
 
@@ -44,7 +45,7 @@ def get_steps_to_process(forecast_ref_time: datetime, domain: Feed, tincr: int =
     along with a list of step=0 files."""
 
     db_client = boto3.resource('dynamodb')
-    dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
+    dynamodb_table = db_client.Table(CONFIG.main.dynamodb_table_name)
     all_response = dynamodb_table.query(
         KeyConditionExpression='ReferenceTimePartitionKey = :ref_time',
         FilterExpression='#domain = :domain',
@@ -102,7 +103,7 @@ def update_product_index_processed(object_key: str, reference_time: datetime, ti
     processed_timestamp = int(datetime.now(UTC).timestamp())
 
     db_client = boto3.resource('dynamodb')
-    dynamodb_table = db_client.Table(os.environ['DYNAMODB_TABLE'])
+    dynamodb_table = db_client.Table(CONFIG.main.dynamodb_table_name)
     dynamodb_table.update_item(
         Key={
             'ReferenceTimePartitionKey': int(reference_time.timestamp()),

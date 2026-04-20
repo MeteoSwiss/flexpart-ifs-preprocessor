@@ -7,13 +7,14 @@ import json
 import boto3
 
 from flexpart_ifs_preprocessor.domain.data_model import  IFSForecastFile
+from flexpart_ifs_preprocessor import CONFIG
 
 logger = logging.getLogger(__name__)
 
 def download_file(file: IFSForecastFile, target_dir: Path) -> None:
     sts_client = boto3.client('sts')
     assumed_role = sts_client.assume_role(
-        RoleArn=os.environ['SOURCE_ROLE_ARN'],
+        RoleArn=CONFIG.main.source_role_arn,
         RoleSessionName=f'product_publisher_{str(uuid.uuid4())}' # TODO check this RoleSessionName
     )
     credentials = assumed_role['Credentials']
@@ -34,7 +35,7 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
 
     # download the file from S3 bucket
     target_s3_client.download_file(
-        os.environ['SOURCE_S3_BUCKET_ARN'],
+        CONFIG.main.source_s3_bucket_arn,
         file.object_key,
         target_path
     )
