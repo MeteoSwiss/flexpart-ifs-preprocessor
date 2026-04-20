@@ -9,19 +9,35 @@ import boto3
 import pytest
 from moto import mock_aws
 
+from flexpart_ifs_preprocessor.config.settings import AppSettings
+
 
 @pytest.fixture(autouse=True)
 def set_test_env_vars(monkeypatch):
-    monkeypatch.setenv("MAIN__DYNAMODB_TABLE_NAME", "test-table")
-    monkeypatch.setenv("MAIN__SOURCE_ROLE_ARN", "arn:aws:iam::123456789012:role/test-role")
-    monkeypatch.setenv("MAIN__SOURCE_S3_BUCKET_ARN", "source-bucket")
-    monkeypatch.setenv("MAIN__TARGET_S3_BUCKET_NAME_GLOBAL", "target-bucket-global")
-    monkeypatch.setenv("MAIN__TARGET_S3_BUCKET_NAME_EUROPE", "target-bucket-europe")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
     monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
     monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
     monkeypatch.setenv("AWS_SECURITY_TOKEN", "testing")
     monkeypatch.setenv("AWS_SESSION_TOKEN", "testing")
+
+
+OPER_TARGET_BUCKET_GLOBAL = "target-bucket-global"
+OPER_TARGET_BUCKET_EU = "target-bucket-europe"
+DYNAMODB_TABLE_NAME = "test-table"
+
+APP_SETTINGS = AppSettings(
+    dynamodb_table_name=DYNAMODB_TABLE_NAME,
+    source_role_arn="arn:aws:iam::123456789012:role/test-role",
+    source_s3_bucket_arn="source-bucket",
+    target_s3_bucket_name_global=OPER_TARGET_BUCKET_GLOBAL,
+    target_s3_bucket_name_europe=OPER_TARGET_BUCKET_EU
+)
+
+@pytest.fixture(autouse=True)
+def patch_config(monkeypatch):
+    """Patch the module-level CONFIG.main with the test AppSettings instance."""
+    from flexpart_ifs_preprocessor import CONFIG
+    monkeypatch.setattr(CONFIG, "main", APP_SETTINGS)
 
 
 RESOURCES_DIR = Path(__file__).parent / "resources"
@@ -33,14 +49,6 @@ RESOURCES_DIR = Path(__file__).parent / "resources"
 
 F2_FILENAME = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
 OBJECT_KEY = "some/prefix/" + F2_FILENAME
-
-
-# ---------------------------------------------------------------------------
-# DynamoDB table
-# ---------------------------------------------------------------------------
-
-DYNAMODB_TABLE_NAME = "test-table"
-
 
 # ---------------------------------------------------------------------------
 # Kafka / Lambda event helpers
@@ -64,8 +72,6 @@ OPER_REF_TIME    = datetime(2026, 4, 8, 0, 0, 0, tzinfo=timezone.utc)
 OPER_REF_TIME_TS = int(OPER_REF_TIME.timestamp())
 OPER_PREFIX      = "raw/s4y_f2/data"
 OPER_SOURCE_BUCKET = "source-bucket"
-OPER_TARGET_BUCKET_GLOBAL = "target-bucket-global"
-OPER_TARGET_BUCKET_EU = "target-bucket-europe"
 
 OPER_DA_0H  = "s4y_f2_ifs-da_od_oper_an_20260408T000000Z_20260408T000000Z_0h"
 OPER_ENS_0H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T000000Z_0h"
