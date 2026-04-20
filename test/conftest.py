@@ -69,6 +69,7 @@ OPER_TARGET_BUCKET_EU = "target-bucket-europe"
 
 OPER_DA_0H  = "s4y_f2_ifs-da_od_oper_an_20260408T000000Z_20260408T000000Z_0h"
 OPER_ENS_0H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T000000Z_0h"
+OPER_ENS_2H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T020000Z_2h"
 OPER_ENS_3H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T030000Z_3h"
 OPER_ENS_4H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T040000Z_4h"
 
@@ -115,7 +116,7 @@ def _make_ddb_table(ddb):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def oper_dynamodb_table(mocked_aws):
     """Create and pre-populate the DynamoDB table for the 4h scenario.
 
@@ -125,7 +126,7 @@ def oper_dynamodb_table(mocked_aws):
     ddb = boto3.resource("dynamodb", region_name="eu-central-1")
     table = _make_ddb_table(ddb)
     table.meta.client.get_waiter("table_exists").wait(TableName=DYNAMODB_TABLE_NAME)
-    for filename, step in [(OPER_DA_0H, 0), (OPER_ENS_0H, 0), (OPER_ENS_3H, 3)]:
+    for filename, step in [(OPER_DA_0H, 0), (OPER_ENS_0H, 0), (OPER_ENS_2H, 2), (OPER_ENS_3H, 3)]:
         table.put_item(Item={
             "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
             "ObjectKey": f"{OPER_PREFIX}/{filename}",
@@ -140,7 +141,7 @@ def oper_dynamodb_table(mocked_aws):
     yield table
 
 
-@pytest.fixture()
+@pytest.fixture(scope="function")
 def oper_s3_buckets(mocked_aws):
     """Create source/target S3 buckets and upload all four test GRIB files.
 
@@ -154,7 +155,7 @@ def oper_s3_buckets(mocked_aws):
             Bucket=bucket,
             CreateBucketConfiguration={"LocationConstraint": "eu-central-1"},
         )
-    for filename in (OPER_DA_0H, OPER_ENS_0H, OPER_ENS_3H, OPER_ENS_4H):
+    for filename in (OPER_DA_0H, OPER_ENS_0H, OPER_ENS_2H, OPER_ENS_3H, OPER_ENS_4H):
         s3.upload_file(
             str(_resources / filename),
             OPER_SOURCE_BUCKET,
@@ -164,6 +165,6 @@ def oper_s3_buckets(mocked_aws):
 
 
 @pytest.fixture()
-def aws_4h_environment(oper_dynamodb_table, oper_s3_buckets):
+def aws_environment(oper_dynamodb_table, oper_s3_buckets):
     """Compose the three 4h scenario fixtures into a single environment handle."""
     yield Step4Test(table=oper_dynamodb_table, s3=oper_s3_buckets)
