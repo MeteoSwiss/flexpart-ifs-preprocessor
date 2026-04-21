@@ -8,17 +8,20 @@ from typing import Any, Generator
 from flexprep.io_grib import write_grib
 from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
+from xarray import DataArray
 
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
-from xarray import DataArray
+from flexpart_ifs_preprocessor import CONFIG
+
 
 logger = logging.getLogger(__name__)
 
 
 def run_preprocessing(input_file: IFSForecastFile,
                       previous_file: IFSForecastFile,
-                      step_zero_files: list[IFSForecastFile]) -> None:
+                      step_zero_files: list[IFSForecastFile],
+                      tincr: int = 1) -> None:
     # Download the files, skipping any that already exist in the temp directory
     logger.info("Downloading main file for processing: %s", input_file.object_key)
     with _download_temp_files([input_file, previous_file] + step_zero_files) as directory:
@@ -40,23 +43,27 @@ def run_preprocessing(input_file: IFSForecastFile,
         processed = preprocess(raw)
         logger.info("Prepared fields: %s", ", ".join(sorted(processed.keys())))
 
-        _generate_and_upload_grib_file(directory, processed, input_file)
+        _generate_and_upload_grib_file(directory, processed, input_file, tincr)
 
 
-def _generate_and_upload_grib_file(output_dir: Path, processed: dict[str, DataArray], input_file: IFSForecastFile):
+def _generate_and_upload_grib_file(output_dir: Path,
+                                   processed: dict[str, DataArray],
+                                   input_file: IFSForecastFile,
+                                   tincr: int = 1) -> None:
     """Write FLEXPART-ready GRIB2 (one file per forecast step)"""
 
     logger.info("Writing GRIB2 file to %s ...", output_dir)
 
-    if input_file.domain == Feed.F1:
-        prefix = "dispc"
-        bucket = os.environ['TARGET_S3_BUCKET_NAME_GLOBAL']
-    elif input_file.domain == Feed.F2:
-        prefix = "dispf"
-        bucket = os.environ['TARGET_S3_BUCKET_NAME_EUROPE']
-    else:
-        logger.error("Unknown feed/domain: %s", input_file.domain)
-        raise ValueError(f"Unknown feed/domain: {input_file.domain}")
+    _UPLOAD_CONFIG: dict[tuple[Feed, int], tuple[str, str]] = {
+        (Feed.F1, 3):    ("dispc", CONFIG.main.target_s3_bucket_name_global),
+        (Feed.F2, 3):    ("dispf", CONFIG.main.target_s3_bucket_name_global),
+        (Feed.F2, 1):    ("dispf", CONFIG.main.target_s3_bucket_name_europe),
+    }
+
+    config = _UPLOAD_CONFIG.get((input_file.domain, tincr))
+    if config is None:
+        raise ValueError(f"Unknown feed/domain combination: {input_file.domain=}, {tincr=}")
+    prefix, bucket = config
 
     paths = write_grib(
         processed,

@@ -5,12 +5,10 @@ logging:
   formatter: "standard"
   child_log_levels:
     mchpy: INFO
-app_name: Flexpart-IFS-Preprocessor
+app_name: Flexpart IFS Preprocessor
 main:
-  s3:
-    output:
-      endpoint_url: https://object-store.os-api.cci1.ecmwf.int
-      name: flexpart-input
-  time_settings:
-    tincr: 3
-    tstart: 0
+  source_role_arn: SOURCE_ROLE_ARN
+  source_s3_bucket_arn: SOURCE_S3_BUCKET_ARN
+  target_s3_bucket_name_europe: target-bucket-europe
+  target_s3_bucket_name_global: target-bucket-global
+  dynamodb_table_name: db-table
