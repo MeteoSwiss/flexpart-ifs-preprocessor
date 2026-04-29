@@ -31,10 +31,10 @@ def write_product_index(event: IFSForecastFile) -> None:
         f'Status_3h': 'PENDING',
         f'Status_1h': 'PENDING',
     }
-    if event.domain == 'F1':
+    if event.domain == Feed.F1:
         # For F1 (GLOBAL) files, only 3-hourly preprocessing is needed, so we can set the 1-hourly status to 'N/A'.
         message['Status_1h'] = 'N/A'
-    elif event.domain == 'F2' and event.step % 3 != 0:
+    elif event.domain == Feed.F2 and event.step % 3 != 0:
         # For F2 (EUROPE) files that are not on 3-hourly steps, only 1-hourly preprocessing is needed, so we can set the 3-hourly status to 'N/A'.
         message['Status_3h'] = 'N/A'
 
