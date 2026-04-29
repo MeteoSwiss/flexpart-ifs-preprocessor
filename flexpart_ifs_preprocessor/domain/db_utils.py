@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import datetime, UTC
 
 import boto3
@@ -16,6 +15,9 @@ def write_product_index(event: IFSForecastFile) -> None:
     # Adding created_at parameter for tracking files longevity
     creation_timestamp = int(datetime.now(UTC).timestamp())
 
+    # TTL set to 2 days from now
+    ttl_timestamp = creation_timestamp + (2 * 24 * 60 * 60)
+
     message = {
         'ReferenceTimePartitionKey': int(event.forecast_ref_time.timestamp()),  # Partition Key
         'ObjectKey': event.object_key,  # DynamoDB Primary Sort Key
@@ -24,13 +26,14 @@ def write_product_index(event: IFSForecastFile) -> None:
         'FileName': event.filename,
         'Domain': str(event.domain.value),
         'CreatedAt': creation_timestamp,
+        'TTL': ttl_timestamp,
         f'Status_3h': 'PENDING',
         f'Status_1h': 'PENDING',
     }
-    if event.domain == 'F1':
+    if event.domain == Feed.F1:
         # For F1 (GLOBAL) files, only 3-hourly preprocessing is needed, so we can set the 1-hourly status to 'N/A'.
         message['Status_1h'] = 'N/A'
-    elif event.domain == 'F2' and event.step % 3 != 0:
+    elif event.domain == Feed.F2 and event.step % 3 != 0:
         # For F2 (EUROPE) files that are not on 3-hourly steps, only 1-hourly preprocessing is needed, so we can set the 3-hourly status to 'N/A'.
         message['Status_3h'] = 'N/A'
 
