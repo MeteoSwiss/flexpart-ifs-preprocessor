@@ -16,6 +16,9 @@ def write_product_index(event: IFSForecastFile) -> None:
     # Adding created_at parameter for tracking files longevity
     creation_timestamp = int(datetime.now(UTC).timestamp())
 
+    # TTL set to 2 days from now
+    ttl_timestamp = creation_timestamp + (2 * 24 * 60 * 60)
+
     message = {
         'ReferenceTimePartitionKey': int(event.forecast_ref_time.timestamp()),  # Partition Key
         'ObjectKey': event.object_key,  # DynamoDB Primary Sort Key
@@ -24,6 +27,7 @@ def write_product_index(event: IFSForecastFile) -> None:
         'FileName': event.filename,
         'Domain': str(event.domain.value),
         'CreatedAt': creation_timestamp,
+        'TTL': ttl_timestamp,
         f'Status_3h': 'PENDING',
         f'Status_1h': 'PENDING',
     }
