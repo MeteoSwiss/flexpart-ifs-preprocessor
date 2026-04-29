@@ -132,3 +132,26 @@ class TestProcess3hEndToEnd:
         assert item["Status_3h"] == "PROCESSED", (
             f"Expected Status=PROCESSED for the 3h item, got: {item['Status_3h']}"
         )
+
+
+def test_non_3hourly_f2_steps_have_status_3h_na(mocked_aws, oper_dynamodb_table_3h):
+    """F2 steps not divisible by 3 should have Status_3h='N/A' to prevent 3h processing."""
+    from flexpart_ifs_preprocessor.domain.db_utils import write_product_index, get_steps_to_process
+    from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
+    from datetime import datetime, timezone
+
+    # Create F2 event with step=5 (not divisible by 3)
+    ref_time = datetime(2026, 4, 28, 6, 0, 0, tzinfo=timezone.utc)
+    event = IFSForecastFile(
+        object_key="raw/s4y_f2/data/s4y_f2_ifs-ens-cf_od_oper_fc_20260428T060000Z_20260428T110000Z_5h",
+        filename="s4y_f2_ifs-ens-cf_od_oper_fc_20260428T060000Z_20260428T110000Z_5h",
+        domain=Feed.F2,
+        forecast_ref_time=ref_time,
+        step=5
+    )
+
+    write_product_index(event)
+
+    # Query with tincr=3 should return empty (step=5 shouldn't be processed with tincr=3)
+    items_to_process, _ = get_steps_to_process(ref_time, Feed.F2, tincr=3)
+    assert len(items_to_process) == 0, "Non-3-hourly F2 steps should not be returned for tincr=3 processing"
