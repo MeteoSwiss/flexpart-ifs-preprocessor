@@ -1,7 +1,6 @@
 import contextlib
 import logging
 from pathlib import Path
-import os
 import tempfile
 from typing import Any, Generator
 
@@ -54,16 +53,18 @@ def _generate_and_upload_grib_file(output_dir: Path,
 
     logger.info("Writing GRIB2 file to %s ...", output_dir)
 
-    _UPLOAD_CONFIG: dict[tuple[Feed, int], tuple[str, str]] = {
-        (Feed.F1, 3):    ("dispc", CONFIG.main.target_s3_bucket_name_global),
-        (Feed.F2, 3):    ("dispf", CONFIG.main.target_s3_bucket_name_global),
-        (Feed.F2, 1):    ("dispf", CONFIG.main.target_s3_bucket_name_europe),
+    _UPLOAD_CONFIG: dict[tuple[Feed, int], tuple[str, str, str]] = {
+        (Feed.F1, 3):    ("dispc", CONFIG.main.target_s3_bucket_name_global, "IFS-HRES"),
+        # when uploading to GLOBAL bucket a EUROPE domain file, use IFS-HRES as model name
+        # (as convention with lead time aggregator)
+        (Feed.F2, 3):    ("dispf", CONFIG.main.target_s3_bucket_name_global, "IFS-HRES"),
+        (Feed.F2, 1):    ("dispf", CONFIG.main.target_s3_bucket_name_europe, "IFS-HRES-Europe"),
     }
 
     config = _UPLOAD_CONFIG.get((input_file.domain, tincr))
     if config is None:
         raise ValueError(f"Unknown feed/domain combination: {input_file.domain=}, {tincr=}")
-    prefix, bucket = config
+    prefix, bucket, model_name = config
 
     paths = write_grib(
         processed,
@@ -72,7 +73,7 @@ def _generate_and_upload_grib_file(output_dir: Path,
         suffix="")
     try:
         metadata = {
-            "model": input_file.model,
+            "model": model_name,
             "date": input_file.forecast_ref_time.strftime("%Y%m%d"),
             "time": input_file.forecast_ref_time.strftime("%H%M"),
             "step": str(input_file.step),

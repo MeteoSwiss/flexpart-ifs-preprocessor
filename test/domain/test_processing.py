@@ -24,6 +24,7 @@ from flexpart_ifs_preprocessor.domain.data_model import Feed, IFSForecastFile
 
 from conftest import GRIB_FILE
 
+
 class TestLoadGrib:
     """Tests for flexprep.sources.local.load_grib against the real GRIB file."""
 
@@ -102,7 +103,8 @@ class TestPreprocess:
 class TestGenerateAndUploadGribFile:
     """Unit tests for the internal helper that writes and uploads GRIB output."""
 
-    _FILENAME = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
+    _F2_FILENAME = "s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
+    _F1_FILENAME = "s4y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
 
     @pytest.fixture(scope="class")
     def processed_fields(self):
@@ -113,8 +115,8 @@ class TestGenerateAndUploadGribFile:
     @pytest.fixture()
     def input_file(self):
         return IFSForecastFile(
-            object_key=f"prefix/{self._FILENAME}",
-            filename=self._FILENAME,
+            object_key=f"prefix/{self._F2_FILENAME}",
+            filename=self._F2_FILENAME,
         )
 
     @pytest.fixture()
@@ -130,12 +132,12 @@ class TestGenerateAndUploadGribFile:
     def test_correct_prefix_used(self, processed_fields, domain, expected_prefix, fake_path, tmp_path):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
         input_file = IFSForecastFile(
-            object_key=f"prefix/{self._FILENAME}",
-            filename=self._FILENAME,
+            object_key=f"prefix/{self._F2_FILENAME}",
+            filename=self._F2_FILENAME,
             domain=domain,
         )
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]) as mock_write, \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3"):
+                patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3"):
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file, tincr=3)
             assert mock_write.call_args.kwargs["prefix"] == expected_prefix
 
@@ -145,19 +147,19 @@ class TestGenerateAndUploadGribFile:
         for p in fake_paths:
             p.write_bytes(b"grib")
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=fake_paths), \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
+                patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
         assert mock_upload.call_count == 3
 
     @pytest.mark.parametrize("upload_side_effect, expect_raises", [
-        (None,                       None),
-        (RuntimeError("S3 error"),   RuntimeError),
+        (None, None),
+        (RuntimeError("S3 error"), RuntimeError),
     ])
     def test_output_files_deleted(self, processed_fields, input_file, fake_path, tmp_path,
-                                   upload_side_effect, expect_raises):
+                                  upload_side_effect, expect_raises):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3", side_effect=upload_side_effect):
+                patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3", side_effect=upload_side_effect):
             if expect_raises:
                 with pytest.raises(expect_raises):
                     _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
@@ -165,16 +167,22 @@ class TestGenerateAndUploadGribFile:
                 _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
         assert not fake_path.exists()
 
-    def test_upload_metadata_contains_required_keys(self, processed_fields, input_file, fake_path, tmp_path):
+    @pytest.mark.parametrize("tincr,input_file,expected_model,expected_domain", [
+        [1, IFSForecastFile(object_key=_F2_FILENAME,filename=_F2_FILENAME,), "IFS-HRES-Europe", "EUROPE"],
+        [3, IFSForecastFile(object_key=_F2_FILENAME,filename=_F2_FILENAME,), "IFS-HRES", "EUROPE"],
+        [3, IFSForecastFile(object_key=_F1_FILENAME,filename=_F1_FILENAME,), "IFS-HRES", "GLOBAL"],
+    ])
+    def test_upload_metadata_contains_required_keys(self, processed_fields, input_file,
+                                                    fake_path, tmp_path, tincr, expected_model, expected_domain):
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
-            _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
+                patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
+            _generate_and_upload_grib_file(tmp_path, processed_fields, input_file, tincr)
         _, _, _, metadata = mock_upload.call_args.args
         assert set(metadata.keys()) == {"model", "date", "time", "step", "domain"}
-        assert metadata["model"] == "IFS-HRES-Europe"
+        assert metadata["model"] == expected_model
         assert metadata["step"] == "74"
-        assert metadata["domain"] == "EUROPE"
+        assert metadata["domain"] == expected_domain
 
     def test_metadata_is_json_serialisable_with_decimal_step(self, processed_fields, fake_path, tmp_path):
         """Regression: DynamoDB Decimal step must not cause TypeError in json.dumps."""
@@ -182,12 +190,12 @@ class TestGenerateAndUploadGribFile:
         from decimal import Decimal
         from flexpart_ifs_preprocessor.domain.processing import _generate_and_upload_grib_file
         input_file = IFSForecastFile(
-            object_key=f"prefix/{self._FILENAME}",
-            filename=self._FILENAME,
+            object_key=f"prefix/{self._F2_FILENAME}",
+            filename=self._F2_FILENAME,
             step=Decimal("74"),
         )
         with patch("flexpart_ifs_preprocessor.domain.processing.write_grib", return_value=[fake_path]), \
-             patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
+                patch("flexpart_ifs_preprocessor.domain.processing.upload_to_s3") as mock_upload:
             _generate_and_upload_grib_file(tmp_path, processed_fields, input_file)
         _, _, _, metadata = mock_upload.call_args.args
         assert '"74"' in json.dumps(metadata)
@@ -226,7 +234,7 @@ class TestRunPreprocessing:
         download_fn, _ = fake_download
         input_file, previous_file, step_zero_files = three_files
         with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=download_fn), \
-             patch("flexpart_ifs_preprocessor.domain.processing.load_grib", return_value={}):
+                patch("flexpart_ifs_preprocessor.domain.processing.load_grib", return_value={}):
             with pytest.raises(ValueError, match="No fields loaded"):
                 run_preprocessing(input_file, previous_file, step_zero_files)
 
@@ -241,9 +249,9 @@ class TestRunPreprocessing:
         download_fn, created_files = fake_download
         input_file, previous_file, step_zero_files = three_files
         with patch("flexpart_ifs_preprocessor.domain.processing.download_file", side_effect=download_fn), \
-             patch("flexpart_ifs_preprocessor.domain.processing.load_grib", **load_grib_kwargs), \
-             patch("flexpart_ifs_preprocessor.domain.processing.preprocess", return_value={"sp": MagicMock()}), \
-             patch("flexpart_ifs_preprocessor.domain.processing._generate_and_upload_grib_file"):
+                patch("flexpart_ifs_preprocessor.domain.processing.load_grib", **load_grib_kwargs), \
+                patch("flexpart_ifs_preprocessor.domain.processing.preprocess", return_value={"sp": MagicMock()}), \
+                patch("flexpart_ifs_preprocessor.domain.processing._generate_and_upload_grib_file"):
             try:
                 run_preprocessing(input_file, previous_file, step_zero_files)
             except RuntimeError:
