@@ -51,8 +51,7 @@ class IFSForecastFile:
         # F2 - Europe domain
         elif "_F2_" in self.filename.upper():
             return Feed.F2
-        else:
-            raise ValueError(f"Unknown domain/feed (F1/F2) in {self.filename}")
+        raise ValueError(f"Unknown domain/feed (F1/F2) in {self.filename}")
 
 
 class InputDataAggregatorEvent:
@@ -77,5 +76,4 @@ class InputDataAggregatorEvent:
         # F2 - Europe domain
         elif "_F2_" in self.filename.upper():
             return Feed.F2
-        else:
-            return Feed.UNKNOWN
+        return Feed.UNKNOWN

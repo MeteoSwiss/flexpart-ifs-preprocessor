@@ -189,7 +189,6 @@ pipeline {
         }
 
         stage('Publish Artifacts') {
-            when { expression { !Globals.mergeRequestBuild } }
             environment {
                 REGISTRY_AUTH_FILE = "$workspace/.containers/auth.json"
             }
