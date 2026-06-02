@@ -1457,14 +1457,14 @@ reference = "meteoswiss"
 
 [[package]]
 name = "flexprep"
-version = "0.2.1"
+version = "0.2.2"
 description = "A Python library for pre-processing FLEXPART inputs"
 optional = false
 python-versions = ">=3.10,<3.13"
 groups = ["main"]
 files = [
-    {file = "flexprep-0.2.1-py3-none-any.whl", hash = "sha256:fe4588c48eacf68b88bdd358955b2a288f6166ff2e9edd61fbca3b751c9724e2"},
-    {file = "flexprep-0.2.1.tar.gz", hash = "sha256:dee673b1623e1b328a5fc612ad17b3e5a23e02e78968e0c8a09c0ba7dbdaed1e"},
+    {file = "flexprep-0.2.2-py3-none-any.whl", hash = "sha256:024f9a5895286b42ab2239e1acdc2e3909be307e95f7203f81e77183f3abb3e5"},
+    {file = "flexprep-0.2.2.tar.gz", hash = "sha256:d2f2cc6efa655acc7667bbdb05e03d95cd973a6ff661ecf605956abcf19cf74e"},
 ]
 
 [package.dependencies]
@@ -4209,4 +4209,4 @@ reference = "meteoswiss"
 [metadata]
 lock-version = "2.1"
 python-versions = "~3.11"
-content-hash = "4a94d572b7a915ffe4fc3cda2b9579adfc158b0e787299c216b3525f2effd143"
+content-hash = "e45fb5f140f871443a63b1f945d9ed8dba7a76bd7b664154d362794651f78136"
