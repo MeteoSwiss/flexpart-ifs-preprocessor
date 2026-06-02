@@ -65,12 +65,13 @@ def get_steps_to_process(forecast_ref_time: datetime, domain: Feed, tincr: int =
 
     items_to_process = []
 
-    logger.info(f"Queried DynamoDB for forecast_ref_time={forecast_ref_time}. Found {len(all_items)} item(s).")
+    logger.info("Queried DynamoDB for forecast_ref_time=%s. Found %d item(s).", forecast_ref_time, len(all_items))
 
     if len(step_zero_items) < 2:
         logger.info(
-            f"Only {len(step_zero_items)} step=0 files are available for forecast_ref_time={forecast_ref_time}. "
-            "Waiting for at least 2 step=0 files before processing."
+            "Only %d step=0 files are available for forecast_ref_time=%s. "
+            "Waiting for at least 2 step=0 files before processing.",
+            len(step_zero_items), forecast_ref_time
         )
         return [], []
 
@@ -78,17 +79,18 @@ def get_steps_to_process(forecast_ref_time: datetime, domain: Feed, tincr: int =
         lead_time = item['LeadTime']
         prev_lead_time = lead_time - tincr
 
-        logger.debug(f"Unprocessed item: ObjectKey={item['ObjectKey']}, LeadTime={item['LeadTime']}, CreatedAt={item['CreatedAt']}")
+        logger.debug("Unprocessed item: ObjectKey=%s, LeadTime=%s, CreatedAt=%s", item['ObjectKey'], item['LeadTime'], item['CreatedAt'])
 
         if prev_lead_time >= 0:
             prev_item = items_by_lead_time.get(prev_lead_time)
             if prev_item is None:
                 logger.info(
-                    f"Skipping item with ObjectKey={item['ObjectKey']} and LeadTime={item['LeadTime']} because "
-                    f"previous lead time {prev_lead_time} is missing for forecast_ref_time={forecast_ref_time}."
+                    "Skipping item with ObjectKey=%s and LeadTime=%s because "
+                    "previous lead time %s is missing for forecast_ref_time=%s.",
+                    item['ObjectKey'], item['LeadTime'], prev_lead_time, forecast_ref_time
                 )
                 continue
-            logger.debug(f"Queueing item: ObjectKey={item['ObjectKey']}, LeadTime={lead_time}")
+            logger.debug("Queueing item: ObjectKey=%s, LeadTime=%s", item['ObjectKey'], lead_time)
             items_to_process.append((dynamodb_item_to_ifs_forecast_file(item), dynamodb_item_to_ifs_forecast_file(prev_item)))
 
     return items_to_process, step_zero_items
