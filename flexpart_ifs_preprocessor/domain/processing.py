@@ -6,12 +6,11 @@ from typing import Any, Generator
 
 from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
+from flexprep.io_grib import write_grib
 from xarray import DataArray
 
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
-# TODO replace with `from flexprep.io_grib import write_grib` once output is etadot instead of w, see https://gitlab.phaidra.org/flexpart/flexprep/-/work_items/2
-from flexpart_ifs_preprocessor.domain.write_grib import write_grib
 from flexpart_ifs_preprocessor import CONFIG
 
 logger = logging.getLogger(__name__)
