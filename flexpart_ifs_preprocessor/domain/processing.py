@@ -4,15 +4,14 @@ from pathlib import Path
 import tempfile
 from typing import Any, Generator
 
-from flexprep.io_grib import write_grib
 from flexprep.preprocessing import preprocess
 from flexprep.sources.local import load_grib
+from flexprep.io_grib import write_grib
 from xarray import DataArray
 
 from flexpart_ifs_preprocessor.domain.s3_utils import download_file, upload_to_s3
 from flexpart_ifs_preprocessor.domain.data_model import IFSForecastFile, Feed
 from flexpart_ifs_preprocessor import CONFIG
-
 
 logger = logging.getLogger(__name__)
 
