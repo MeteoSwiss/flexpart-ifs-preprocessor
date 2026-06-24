@@ -33,11 +33,17 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
         return
 
     # download the file from S3 bucket
-    target_s3_client.download_file(
-        CONFIG.main.source_s3_bucket_arn,
-        file.object_key,
-        target_path
-    )
+    try:
+        target_s3_client.download_file(
+            CONFIG.main.source_s3_bucket_arn,
+            file.object_key,
+            target_path
+        )
+    except Exception as e:
+        raise RuntimeError(
+            f"Failed to download object_key='{file.object_key}' "
+            f"from bucket='{CONFIG.main.source_s3_bucket_arn}'"
+        ) from e
 
     logger.info('Object "%s" downloaded at %s', file.object_key, target_path)
 
