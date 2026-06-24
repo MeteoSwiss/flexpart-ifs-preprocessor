@@ -94,5 +94,6 @@ def _download_temp_files(file_paths: list[IFSForecastFile]) -> Generator[Path, A
     with tempfile.TemporaryDirectory() as tmp_dir:
         target_dir = Path(tmp_dir)
         for file in file_paths:
+            logger.info("Downloading file: %s (object_key: %s)", file.filename, file.object_key)
             download_file(file, target_dir)
         yield target_dir
