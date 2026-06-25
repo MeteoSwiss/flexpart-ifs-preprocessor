@@ -31,6 +31,7 @@ def download_file(file: IFSForecastFile, target_dir: Path) -> None:
     if target_path.exists():
         logger.debug("File already exists, skipping download: %s", target_path)
         return
+    logger.info("Downloading file: %s (object_key: %s) from bucket %s", file.filename, file.object_key, CONFIG.main.source_s3_bucket_arn)
 
     # download the file from S3 bucket
     try:
