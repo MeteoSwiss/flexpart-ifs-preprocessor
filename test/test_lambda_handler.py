@@ -211,3 +211,23 @@ class TestLambdaHandler:
             lambda_handler(event, MagicMock())
 
         mocks["write_product_index"].assert_not_called()
+
+    def test_returns_empty_batch_item_failures_on_success(self):
+        mocks = self._make_mocks()
+        event = _make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME))
+        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
+             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
+             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]):
+            result = lambda_handler(event, MagicMock())
+        assert result == {"batchItemFailures": []}
+
+    def test_returns_batch_item_failure_when_record_raises(self):
+        mocks = self._make_mocks()
+        mocks["write_product_index"].side_effect = RuntimeError("boom")
+        record = {**_make_kafka_record(OBJECT_KEY, F2_FILENAME), "eventID": "partition-0:42"}
+        event = _make_event(record)
+        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
+             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
+             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]):
+            result = lambda_handler(event, MagicMock())
+        assert result == {"batchItemFailures": [{"itemIdentifier": "partition-0:42"}]}
