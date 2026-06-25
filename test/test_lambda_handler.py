@@ -17,9 +17,9 @@ import pytest
 from flexpart_ifs_preprocessor.domain.data_model import Feed, IFSForecastFile, Stream
 from flexpart_ifs_preprocessor.flexpart_ifs_preprocessor import (
     _kafka_event_to_input_data_aggregator_event,
-    _parse_event_records,
     lambda_handler,
 )
+from aws_lambda_powertools.utilities.kafka import ConsumerRecords
 
 from conftest import (
     F2_FILENAME,
@@ -69,12 +69,23 @@ class TestKafkaEventToInputDataAggregatorEvent:
 
 
 # ===========================================================================
-# _parse_event_records
+# Stream/feed filtering (tested via lambda_handler → write_product_index)
 # ===========================================================================
 
 
 class TestParseEventRecords:
-    """Tests that only relevant stream/feed combinations are returned."""
+    """Tests that only relevant stream/feed combinations reach write_product_index."""
+
+    @pytest.fixture(autouse=True)
+    def _suppress_side_effects(self):
+        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", return_value=([], [])), \
+             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing"):
+            yield
+
+    @pytest.fixture
+    def write_mock(self):
+        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index") as m:
+            yield m
 
     @pytest.mark.parametrize("filename, expected_count", [
         # S4Y + F2 → accepted
@@ -90,46 +101,42 @@ class TestParseEventRecords:
         # Unknown feed → filtered out
         ("s4y_f3_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 0),
     ])
-    def test_filtering(self, filename, expected_count):
-        event = _make_event(_make_kafka_record(OBJECT_KEY, filename))
-        result = _parse_event_records(event)
-        assert len(result) == expected_count
+    def test_filtering(self, write_mock, filename, expected_count):
+        lambda_handler(_make_event(_make_kafka_record(OBJECT_KEY, filename)), MagicMock())
+        assert write_mock.call_count == expected_count
 
-    def test_multiple_records_parsed(self):
-        r1 = _make_kafka_record(OBJECT_KEY, F2_FILENAME)
-        r2 = _make_kafka_record(OBJECT_KEY, F1_FILENAME)
-        event = _make_event(r1, r2)
-        result = _parse_event_records(event)
-        assert len(result) == 2
+    def test_multiple_records_parsed(self, write_mock):
+        event = _make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME), _make_kafka_record(OBJECT_KEY, F1_FILENAME))
+        lambda_handler(event, MagicMock())
+        assert write_mock.call_count == 2
 
-    def test_domain_set_on_returned_files(self):
-        event = _make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME))
-        result = _parse_event_records(event)
-        assert result[0].domain == Feed.F2
+    def test_domain_set_on_file_passed_to_write(self, write_mock):
+        lambda_handler(_make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME)), MagicMock())
+        assert write_mock.call_args[0][0].domain == Feed.F2
 
-    def test_multiple_partitions_all_parsed(self):
-        """Records from different Kafka partitions must all be returned."""
+    def test_multiple_partitions_all_parsed(self, write_mock):
+        """Records from different Kafka partitions must all reach write_product_index."""
         event = {
             "records": {
                 "partition-0": [_make_kafka_record(OBJECT_KEY, F2_FILENAME)],
                 "partition-1": [_make_kafka_record(OBJECT_KEY, F1_FILENAME)],
             }
         }
-        result = _parse_event_records(event)
-        assert len(result) == 2
+        lambda_handler(event, MagicMock())
+        assert write_mock.call_count == 2
 
-    def test_empty_event_returns_empty_list(self):
-        event = {"records": {}}
-        result = _parse_event_records(event)
-        assert result == []
+    def test_empty_event_does_not_call_write(self, write_mock):
+        lambda_handler({"records": {}}, MagicMock())
+        write_mock.assert_not_called()
 
-    def test_mixed_valid_and_invalid_records(self):
-        valid = _make_kafka_record(OBJECT_KEY, F2_FILENAME)
-        invalid = _make_kafka_record(OBJECT_KEY, "xxx_f3_unknown_20260331T060000Z_20260403T080000Z_74h")
-        event = _make_event(valid, invalid)
-        result = _parse_event_records(event)
-        assert len(result) == 1
-        assert result[0].domain == Feed.F2
+    def test_mixed_valid_and_invalid_records(self, write_mock):
+        event = _make_event(
+            _make_kafka_record(OBJECT_KEY, F2_FILENAME),
+            _make_kafka_record(OBJECT_KEY, "xxx_f3_unknown_20260331T060000Z_20260403T080000Z_74h"),
+        )
+        lambda_handler(event, MagicMock())
+        assert write_mock.call_count == 1
+        assert write_mock.call_args[0][0].domain == Feed.F2
 
 
 # ===========================================================================
