@@ -196,7 +196,7 @@ class TestLambdaHandler:
             lambda_handler(event, MagicMock())
 
         assert mocks["write_product_index"].call_count == 2
-        assert mocks["get_steps_to_process"].call_count == 2
+        assert mocks["get_steps_to_process"].call_count == 1 # F1 feed (global) for 6UTC is not processed
 
     def test_filtered_records_do_not_trigger_writes(self):
         """Records with unknown stream/feed should be silently discarded."""

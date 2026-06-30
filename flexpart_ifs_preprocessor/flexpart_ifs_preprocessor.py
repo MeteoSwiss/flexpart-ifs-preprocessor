@@ -45,12 +45,15 @@ def lambda_handler(event: ConsumerRecords, _: LambdaContext) -> None:
                 # - 3-hourly: for nesting the Europe domain into the global runs, which requires
                 #   3-hourly NWP data with aggregated values (e.g. precipitation, fluxes) averaged
                 #   over 3 hours.
-                if file_event.domain == Feed.F1:
+                if file_event.domain == Feed.F1 and file_event.forecast_ref_time.hour in (0,12):
                     tincr_list = [3]
-                elif file_event.domain == Feed.F2 and file_event.step % 3 == 0:
+                elif file_event.domain == Feed.F2 and file_event.forecast_ref_time.hour in (0,12) and file_event.step % 3 == 0 :
                     tincr_list = [1,3]
                 elif file_event.domain == Feed.F2:
                     tincr_list = [1]
+                else:
+                    logger.info("Skipping record offset=%s, not a relevant feed/forecast_datetime", kafka_record.get("offset"))
+                    continue
 
                 for tincr in tincr_list:
 
