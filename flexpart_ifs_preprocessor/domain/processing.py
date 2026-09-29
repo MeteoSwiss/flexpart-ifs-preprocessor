@@ -28,6 +28,7 @@ def run_preprocessing(input_file: IFSForecastFile,
 
         raw = load_grib([
             directory / input_file.filename,
+            directory / previous_file.filename,
             directory / step_zero_files[0].filename,
             directory / step_zero_files[1].filename])
 
