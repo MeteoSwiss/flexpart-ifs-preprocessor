@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "flexpart-ifs-preprocessor"
-version = "0.8.0"
+version = "0.8.1"
 description = "Preprocesses IFS data for use in Flexpart"
 license = "BSD-3-Clause"
 authors = [
@@ -42,6 +42,7 @@ importlib_resources = "*"
 pydata-sphinx-theme = "*"
 sphinx-autoapi = "*"
 moto = "^5.1.22"
+pytest = "^9.1.1"
 
 [tool.poetry.scripts]
 flexpart-ifs-preprocessor = "flexpart_ifs_preprocessor.main:cli"
