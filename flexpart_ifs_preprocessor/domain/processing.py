@@ -41,6 +41,10 @@ def run_preprocessing(input_file: IFSForecastFile,
 
         # Preprocess (rates to per-hour/per-second, omega, etc.)
         processed = preprocess(raw)
+        # raw holds steps [0, previous, current]; flexprep only drops the first step, so without
+        # this an extra output file for the previous step would be written and uploaded.
+        processed = {name: da.isel(step=[-1]) if "step" in da.dims else da
+                     for name, da in processed.items()}
         logger.info("Prepared fields: %s", ", ".join(sorted(processed.keys())))
 
         _generate_and_upload_grib_file(directory, processed, input_file, tincr)

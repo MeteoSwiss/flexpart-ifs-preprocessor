@@ -47,8 +47,8 @@ class TestProcess4hEndToEnd:
         resp = aws_environment_4h.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_EU)
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket"
         keys = [obj["Key"] for obj in resp["Contents"]]
-        assert any(k.startswith("dispf") for k in keys), (
-            f"Expected a dispf* output file in target bucket, got: {keys}"
+        assert keys == ["dispf2026040804"], (
+            f"Expected exactly one dispf output file for step 4, got: {keys}"
         )
 
         resp = aws_environment_4h.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_GLOBAL)
@@ -105,14 +105,14 @@ class TestProcess3hEndToEnd:
 
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket (europe)"
         keys = [obj["Key"] for obj in resp["Contents"]]
-        assert any(k.startswith("dispf") for k in keys), (
-            f"Expected a dispf* output file in target bucket, got: {keys}"
+        assert keys == ["dispf2026040803"], (
+            f"Expected exactly one dispf output file for step 3, got: {keys}"
         )
         resp = aws_environment_3h.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_GLOBAL)
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket (global)"
         keys = [obj["Key"] for obj in resp["Contents"]]
-        assert any(k.startswith("dispf") for k in keys), (
-            f"Expected a dispf* output file in target bucket, got: {keys}"
+        assert keys == ["dispf2026040803"], (
+            f"Expected exactly one dispf output file for step 3, got: {keys}"
         )
 
     def test_3h_item_marked_processed_in_dynamodb(self, aws_environment_3h):
