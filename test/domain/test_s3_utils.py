@@ -8,7 +8,6 @@ or the STS assume-role call.  These unit tests cover each of those behaviours
 in isolation so a regression pinpoints exactly which function broke.
 """
 
-import json
 import os
 import tempfile
 from pathlib import Path
@@ -71,10 +70,9 @@ class TestUploadToS3:
             upload_to_s3(tmp_path, "output/file.grib", TARGET_BUCKET, metadata)
             head = s3.head_object(Bucket=TARGET_BUCKET, Key="output/file.grib")
             stored_meta = head["Metadata"]
-            # The metadata should carry a 'data' key with JSON metadata
-            assert "data" in stored_meta
-            private = json.loads(stored_meta["data"])
-            assert private["model"] == "IFS_Global"
+            assert stored_meta == {
+                "type": "output/file.grib", "model": "IFS_Global", "date": "20260331", "step": "74",
+            }
         finally:
             tmp_path.unlink(missing_ok=True)
 

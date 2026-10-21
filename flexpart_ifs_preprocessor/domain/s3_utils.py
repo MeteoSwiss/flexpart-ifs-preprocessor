@@ -1,7 +1,6 @@
 import logging
 from pathlib import Path
 import uuid
-import json
 
 import boto3
 
@@ -52,9 +51,10 @@ def upload_to_s3(file_path: Path, object_key: str, bucket: str, metadata: dict |
 
     md = {}
     if metadata:
+        # Flat key/value pairs so objects can be queried by their metadata fields.
         md = {
             'type': object_key,
-            'data': json.dumps(metadata)
+            **{k: str(v) for k, v in metadata.items()}
         }
 
     s3_client = boto3.client('s3')
