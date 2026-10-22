@@ -22,14 +22,16 @@ def run_preprocessing(input_file: IFSForecastFile,
                       tincr: int = 1) -> None:
     # Download the files, skipping any that already exist in the temp directory
     logger.info("Processing: %s", input_file.object_key)
-    with _download_temp_files([input_file, previous_file] + step_zero_files) as directory:
+    # The previous file may be a step=0 file (e.g. step 3 with tincr=3); avoid loading it twice
+    step_zero_filenames = {file.filename for file in step_zero_files}
+    previous_files = [] if previous_file.filename in step_zero_filenames else [previous_file]
+    files = [input_file] + previous_files + step_zero_files
+
+    with _download_temp_files(files) as directory:
         # Load raw fields
         logger.info("Loading GRIB source: %s", directory / input_file.filename)
 
-        raw = load_grib([
-            directory / input_file.filename,
-            directory / step_zero_files[0].filename,
-            directory / step_zero_files[1].filename])
+        raw = load_grib([directory / file.filename for file in files])
 
         if not raw:
             logger.error("No fields loaded - aborting.")
@@ -39,6 +41,10 @@ def run_preprocessing(input_file: IFSForecastFile,
 
         # Preprocess (rates to per-hour/per-second, omega, etc.)
         processed = preprocess(raw)
+        # raw holds steps [0, previous, current]; flexprep only drops the first step, so without
+        # this an extra output file for the previous step would be written and uploaded.
+        processed = {name: da.isel(step=[-1]) if "step" in da.dims else da
+                     for name, da in processed.items()}
         logger.info("Prepared fields: %s", ", ".join(sorted(processed.keys())))
 
         _generate_and_upload_grib_file(directory, processed, input_file, tincr)
