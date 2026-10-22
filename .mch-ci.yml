@@ -59,16 +59,12 @@ default:
           - containerPublishImage:
               imageName: ${var.containerImageName}
               imageTag: ${var.semanticVersion}
-      - docs:
-          - openshiftPublishDocs:
-              docSrc: doc/_build/
-              docType: python
   - clean:
       - images:
           cleanupImages:
             targets:
               - image://${var.containerImageName}:${var.semanticVersion}
-              - label://ch.meteoswiss.project:${var.project}-${var.semanticVersion}
+              - label://ch.meteoswiss.project=${var.project}-${var.semanticVersion}
 
 # Alternative setup for installing and testing the service locally using the system's Python environment.
 local:

@@ -17,11 +17,8 @@ class Globals {
     // Build ID
     static String buildId = 'n/a'
 
-    // Documentation version
-    static String docVersion = 'n/a'
-
     // Pin mchbuild to stable version to avoid breaking changes
-    static String mchbuildPipPackage = 'mchbuild>=1.0.0,<2.0.0'
+    static String mchbuildPipPackage = 'mchbuild>=1.2.1,<2.0.0'
 }
 
 String rebuild_cron = env.BRANCH_NAME == "main" ? "@midnight" : ""
@@ -51,7 +48,7 @@ pipeline {
     }
 
     environment {
-        PATH = "$workspace/.venv-mchbuild/bin:$HOME/tools/openshift-client-tools:$PATH"
+        PATH = "$workspace/.venv-mchbuild/bin:$PATH"
         HTTP_PROXY = 'http://proxy.meteoswiss.ch:8080'
         HTTPS_PROXY = 'http://proxy.meteoswiss.ch:8080'
         NO_PROXY = '.meteoswiss.ch,localhost'
@@ -73,14 +70,6 @@ pipeline {
 
                     // Set the buildId to the first 7 digits of the commit hash
                     Globals.buildId = env.GIT_COMMIT.take(7)
-
-                    // We calculate the docVersion, setting it to "latest" if building from main
-                    // and to the tag value if building from a tag
-                    if (env.BRANCH_NAME == 'main') {
-                        Globals.docVersion = 'latest'
-                    } else if (env.TAG_NAME) {
-                        Globals.docVersion = env.TAG_NAME
-                    }
 
                     echo '---- INITIALIZING PARAMETERS ----'
                     if (env.TAG_NAME) {
