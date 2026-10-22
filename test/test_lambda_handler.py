@@ -30,6 +30,7 @@ from conftest import (
 
 F1_FILENAME = "s4y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h"
 
+
 def _make_event(*records: dict) -> dict:
     """Thin wrapper so tests can pass records as positional args."""
     return _make_lambda_event(list(records))
@@ -57,11 +58,14 @@ class TestKafkaEventToInputDataAggregatorEvent:
         ev = _kafka_event_to_input_data_aggregator_event(record)
         assert ev.feed == Feed.F2
 
-    @pytest.mark.parametrize("filename, expected_stream", [
-        ("s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y),
-        ("s5y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S5Y),
-        ("s6y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S6Y),
-    ])
+    @pytest.mark.parametrize(
+        "filename, expected_stream",
+        [
+            ("s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y),
+            ("s5y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S5Y),
+            ("s6y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S6Y),
+        ],
+    )
     def test_stream_variants(self, filename, expected_stream):
         record = _make_kafka_record(OBJECT_KEY, filename)
         ev = _kafka_event_to_input_data_aggregator_event(record)
@@ -78,8 +82,10 @@ class TestParseEventRecords:
 
     @pytest.fixture(autouse=True)
     def _suppress_side_effects(self):
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", return_value=([], [])), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing"):
+        with (
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", return_value=([], [])),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing"),
+        ):
             yield
 
     @pytest.fixture
@@ -87,20 +93,23 @@ class TestParseEventRecords:
         with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index") as m:
             yield m
 
-    @pytest.mark.parametrize("filename, expected_count", [
-        # S4Y + F2 → accepted
-        ("s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
-        # S4Y + F1 → accepted
-        ("s4y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
-        # S5Y + F2 → accepted
-        ("s5y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
-        # S6Y + F1 → accepted
-        ("s6y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
-        # Unknown stream → filtered out
-        ("xxx_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 0),
-        # Unknown feed → filtered out
-        ("s4y_f3_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 0),
-    ])
+    @pytest.mark.parametrize(
+        "filename, expected_count",
+        [
+            # S4Y + F2 → accepted
+            ("s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
+            # S4Y + F1 → accepted
+            ("s4y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
+            # S5Y + F2 → accepted
+            ("s5y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
+            # S6Y + F1 → accepted
+            ("s6y_f1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 1),
+            # Unknown stream → filtered out
+            ("xxx_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 0),
+            # Unknown feed → filtered out
+            ("s4y_f3_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", 0),
+        ],
+    )
     def test_filtering(self, write_mock, filename, expected_count):
         lambda_handler(_make_event(_make_kafka_record(OBJECT_KEY, filename)), MagicMock())
         assert write_mock.call_count == expected_count
@@ -158,9 +167,16 @@ class TestLambdaHandler:
     def test_no_preprocessing_when_no_processable_steps(self):
         mocks = self._make_mocks()
         event = _make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME))
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]):
+        with (
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]
+            ),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process",
+                mocks["get_steps_to_process"],
+            ),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]),
+        ):
             lambda_handler(event, MagicMock())
         mocks["run_preprocessing"].assert_not_called()
 
@@ -175,10 +191,20 @@ class TestLambdaHandler:
         mocks["get_steps_to_process"].return_value = ([(real_file, real_prev)], real_zeros)
 
         event = _make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME))
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.update_product_index_processed", mocks["update_product_index_processed"]):
+        with (
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]
+            ),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process",
+                mocks["get_steps_to_process"],
+            ),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.update_product_index_processed",
+                mocks["update_product_index_processed"],
+            ),
+        ):
             lambda_handler(event, MagicMock())
 
         mocks["run_preprocessing"].assert_called_once_with(real_file, real_prev, real_zeros, 1)
@@ -189,10 +215,20 @@ class TestLambdaHandler:
         r2 = _make_kafka_record(OBJECT_KEY, F1_FILENAME)
         event = _make_event(r1, r2)
 
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.update_product_index_processed", mocks["update_product_index_processed"]):
+        with (
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]
+            ),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process",
+                mocks["get_steps_to_process"],
+            ),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.update_product_index_processed",
+                mocks["update_product_index_processed"],
+            ),
+        ):
             lambda_handler(event, MagicMock())
 
         assert mocks["write_product_index"].call_count == 2
@@ -205,9 +241,16 @@ class TestLambdaHandler:
         bad_record = _make_kafka_record(OBJECT_KEY, "xxx_f3_unknown_20260331T060000Z_20260403T080000Z_74h")
         event = _make_event(bad_record)
 
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]):
+        with (
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]
+            ),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process",
+                mocks["get_steps_to_process"],
+            ),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]),
+        ):
             lambda_handler(event, MagicMock())
 
         mocks["write_product_index"].assert_not_called()
@@ -215,9 +258,16 @@ class TestLambdaHandler:
     def test_returns_empty_batch_item_failures_on_success(self):
         mocks = self._make_mocks()
         event = _make_event(_make_kafka_record(OBJECT_KEY, F2_FILENAME))
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]):
+        with (
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]
+            ),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process",
+                mocks["get_steps_to_process"],
+            ),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]),
+        ):
             result = lambda_handler(event, MagicMock())
         assert result == {"batchItemFailures": []}
 
@@ -226,8 +276,15 @@ class TestLambdaHandler:
         mocks["write_product_index"].side_effect = RuntimeError("boom")
         record = {**_make_kafka_record(OBJECT_KEY, F2_FILENAME), "eventID": "partition-0:42"}
         event = _make_event(record)
-        with patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process", mocks["get_steps_to_process"]), \
-             patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]):
+        with (
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.write_product_index", mocks["write_product_index"]
+            ),
+            patch(
+                "flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.get_steps_to_process",
+                mocks["get_steps_to_process"],
+            ),
+            patch("flexpart_ifs_preprocessor.flexpart_ifs_preprocessor.run_preprocessing", mocks["run_preprocessing"]),
+        ):
             result = lambda_handler(event, MagicMock())
         assert result == {"batchItemFailures": [{"itemIdentifier": "partition-0:42"}]}

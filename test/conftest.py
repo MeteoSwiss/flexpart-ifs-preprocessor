@@ -30,13 +30,15 @@ APP_SETTINGS = AppSettings(
     source_role_arn="arn:aws:iam::123456789012:role/test-role",
     source_s3_bucket_arn="source-bucket",
     target_s3_bucket_name_global=OPER_TARGET_BUCKET_GLOBAL,
-    target_s3_bucket_name_europe=OPER_TARGET_BUCKET_EU
+    target_s3_bucket_name_europe=OPER_TARGET_BUCKET_EU,
 )
+
 
 @pytest.fixture(autouse=True)
 def patch_config(monkeypatch):
     """Patch the module-level CONFIG.main with the test AppSettings instance."""
     from flexpart_ifs_preprocessor import CONFIG
+
     monkeypatch.setattr(CONFIG, "main", APP_SETTINGS)
 
 
@@ -54,6 +56,7 @@ OBJECT_KEY = "some/prefix/" + F2_FILENAME
 # Kafka / Lambda event helpers
 # ---------------------------------------------------------------------------
 
+
 def _make_kafka_record(object_key: str, filename: str) -> dict:
     payload = json.dumps({"objectStoreUuid": object_key, "fileName": filename})
     encoded = base64.b64encode(payload.encode()).decode()
@@ -68,12 +71,12 @@ def _make_lambda_event(records: list[dict]) -> dict:
 # 20260408 end-to-end integration scenario
 # ---------------------------------------------------------------------------
 
-OPER_REF_TIME    = datetime(2026, 4, 8, 0, 0, 0, tzinfo=timezone.utc)
+OPER_REF_TIME = datetime(2026, 4, 8, 0, 0, 0, tzinfo=timezone.utc)
 OPER_REF_TIME_TS = int(OPER_REF_TIME.timestamp())
-OPER_PREFIX      = "raw/s4y_f2/data"
+OPER_PREFIX = "raw/s4y_f2/data"
 OPER_SOURCE_BUCKET = "source-bucket"
 
-OPER_DA_0H  = "s4y_f2_ifs-da_od_oper_an_20260408T000000Z_20260408T000000Z_0h"
+OPER_DA_0H = "s4y_f2_ifs-da_od_oper_an_20260408T000000Z_20260408T000000Z_0h"
 OPER_ENS_0H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T000000Z_0h"
 OPER_ENS_2H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T020000Z_2h"
 OPER_ENS_3H = "s4y_f2_ifs-ens-cf_od_oper_fc_20260408T000000Z_20260408T030000Z_3h"
@@ -92,8 +95,9 @@ def _kafka_event(filename: str, prefix: str = OPER_PREFIX) -> dict:
 @dataclass
 class IntegrationTest:
     """Holds live moto AWS handles for the 4h processing integration scenario."""
+
     table: object  # boto3 Table resource for the test DynamoDB table
-    s3: object     # boto3 S3 client
+    s3: object  # boto3 S3 client
 
 
 @pytest.fixture()
@@ -140,18 +144,21 @@ def oper_dynamodb_table_4h(mocked_aws, request):
     table = _make_ddb_table(ddb)
     table.meta.client.get_waiter("table_exists").wait(TableName=DYNAMODB_TABLE_NAME)
     for filename, step in entries:
-        table.put_item(Item={
-            "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
-            "ObjectKey": f"{OPER_PREFIX}/{filename}",
-            "ReferenceTime": str(OPER_REF_TIME),
-            "LeadTime": step,
-            "FileName": filename,
-            "Domain": "EUROPE",
-            "CreatedAt": 0,
-            "Status_1h": "PENDING",
-            "Status_3h": "PENDING"
-        })
+        table.put_item(
+            Item={
+                "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
+                "ObjectKey": f"{OPER_PREFIX}/{filename}",
+                "ReferenceTime": str(OPER_REF_TIME),
+                "LeadTime": step,
+                "FileName": filename,
+                "Domain": "EUROPE",
+                "CreatedAt": 0,
+                "Status_1h": "PENDING",
+                "Status_3h": "PENDING",
+            }
+        )
     yield table
+
 
 @pytest.fixture(scope="function")
 def oper_dynamodb_table_3h(mocked_aws, request):
@@ -171,17 +178,19 @@ def oper_dynamodb_table_3h(mocked_aws, request):
     table = _make_ddb_table(ddb)
     table.meta.client.get_waiter("table_exists").wait(TableName=DYNAMODB_TABLE_NAME)
     for filename, step in entries:
-        table.put_item(Item={
-            "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
-            "ObjectKey": f"{OPER_PREFIX}/{filename}",
-            "ReferenceTime": str(OPER_REF_TIME),
-            "LeadTime": step,
-            "FileName": filename,
-            "Domain": "EUROPE",
-            "CreatedAt": 0,
-            "Status_1h": "PENDING",
-            "Status_3h": "PENDING"
-        })
+        table.put_item(
+            Item={
+                "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
+                "ObjectKey": f"{OPER_PREFIX}/{filename}",
+                "ReferenceTime": str(OPER_REF_TIME),
+                "LeadTime": step,
+                "FileName": filename,
+                "Domain": "EUROPE",
+                "CreatedAt": 0,
+                "Status_1h": "PENDING",
+                "Status_3h": "PENDING",
+            }
+        )
     yield table
 
 
@@ -212,6 +221,7 @@ def oper_s3_buckets(mocked_aws):
 def aws_environment_3h(oper_dynamodb_table_3h, oper_s3_buckets):
     """Compose the 3h scenario fixtures into a single environment handle."""
     yield IntegrationTest(table=oper_dynamodb_table_3h, s3=oper_s3_buckets)
+
 
 @pytest.fixture()
 def aws_environment_4h(oper_dynamodb_table_4h, oper_s3_buckets):

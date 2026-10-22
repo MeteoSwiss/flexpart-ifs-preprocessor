@@ -16,10 +16,9 @@ from flexpart_ifs_preprocessor import CONFIG
 logger = logging.getLogger(__name__)
 
 
-def run_preprocessing(input_file: IFSForecastFile,
-                      previous_file: IFSForecastFile,
-                      step_zero_files: list[IFSForecastFile],
-                      tincr: int = 1) -> None:
+def run_preprocessing(
+    input_file: IFSForecastFile, previous_file: IFSForecastFile, step_zero_files: list[IFSForecastFile], tincr: int = 1
+) -> None:
     # Download the files, skipping any that already exist in the temp directory
     logger.info("Processing: %s", input_file.object_key)
     # The previous file may be a step=0 file (e.g. step 3 with tincr=3); avoid loading it twice
@@ -43,27 +42,25 @@ def run_preprocessing(input_file: IFSForecastFile,
         processed = preprocess(raw)
         # raw holds steps [0, previous, current]; flexprep only drops the first step, so without
         # this an extra output file for the previous step would be written and uploaded.
-        processed = {name: da.isel(step=[-1]) if "step" in da.dims else da
-                     for name, da in processed.items()}
+        processed = {name: da.isel(step=[-1]) if "step" in da.dims else da for name, da in processed.items()}
         logger.info("Prepared fields: %s", ", ".join(sorted(processed.keys())))
 
         _generate_and_upload_grib_file(directory, processed, input_file, tincr)
 
 
-def _generate_and_upload_grib_file(output_dir: Path,
-                                   processed: dict[str, DataArray],
-                                   input_file: IFSForecastFile,
-                                   tincr: int = 1) -> None:
+def _generate_and_upload_grib_file(
+    output_dir: Path, processed: dict[str, DataArray], input_file: IFSForecastFile, tincr: int = 1
+) -> None:
     """Write FLEXPART-ready GRIB2 (one file per forecast step)"""
 
     logger.info("Writing GRIB2 file to %s ...", output_dir)
 
     _UPLOAD_CONFIG: dict[tuple[Feed, int], tuple[str, str, str]] = {
-        (Feed.F1, 3):    ("dispc", CONFIG.main.target_s3_bucket_name_global, "IFS-Global"),
+        (Feed.F1, 3): ("dispc", CONFIG.main.target_s3_bucket_name_global, "IFS-Global"),
         # when uploading to GLOBAL bucket a EUROPE domain file, use IFS-Global as model name
         # (as convention with lead time aggregator)
-        (Feed.F2, 3):    ("dispf", CONFIG.main.target_s3_bucket_name_global, "IFS-Global"),
-        (Feed.F2, 1):    ("dispf", CONFIG.main.target_s3_bucket_name_europe, "IFS-Europe"),
+        (Feed.F2, 3): ("dispf", CONFIG.main.target_s3_bucket_name_global, "IFS-Global"),
+        (Feed.F2, 1): ("dispf", CONFIG.main.target_s3_bucket_name_europe, "IFS-Europe"),
     }
 
     config = _UPLOAD_CONFIG.get((input_file.domain, tincr))
@@ -71,11 +68,7 @@ def _generate_and_upload_grib_file(output_dir: Path,
         raise ValueError(f"Unknown feed/domain combination: {input_file.domain=}, {tincr=}")
     prefix, bucket, model_name = config
 
-    paths = write_grib(
-        processed,
-        output_dir=output_dir,
-        prefix=prefix,
-        suffix="")
+    paths = write_grib(processed, output_dir=output_dir, prefix=prefix, suffix="")
     try:
         metadata = {
             "model": model_name,
@@ -83,7 +76,7 @@ def _generate_and_upload_grib_file(output_dir: Path,
             "time": input_file.forecast_ref_time.strftime("%H%M"),
             "step": str(input_file.step),
             "domain": str(input_file.domain.value),
-            }
+        }
         for path in paths:
             logger.info("Finished writing processed output at: %s", path.name)
             upload_to_s3(path, path.name, bucket, metadata)
@@ -97,7 +90,7 @@ def _generate_and_upload_grib_file(output_dir: Path,
 
 @contextlib.contextmanager
 def _download_temp_files(file_paths: list[IFSForecastFile]) -> Generator[Path, Any, None]:
-    logger.info("Downloading files %s", ', '.join([file.filename for file in file_paths]))
+    logger.info("Downloading files %s", ", ".join([file.filename for file in file_paths]))
     with tempfile.TemporaryDirectory() as tmp_dir:
         target_dir = Path(tmp_dir)
         for file in file_paths:

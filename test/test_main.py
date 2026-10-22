@@ -35,6 +35,7 @@ from conftest import (
 # Tests
 # ---------------------------------------------------------------------------
 
+
 class TestProcess4hEndToEnd:
     """lambda_handler processes the 4h GRIB file end-to-end against mocked AWS."""
 
@@ -47,9 +48,7 @@ class TestProcess4hEndToEnd:
         resp = aws_environment_4h.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_EU)
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket"
         keys = [obj["Key"] for obj in resp["Contents"]]
-        assert keys == ["dispf2026040804"], (
-            f"Expected exactly one dispf output file for step 4, got: {keys}"
-        )
+        assert keys == ["dispf2026040804"], f"Expected exactly one dispf output file for step 4, got: {keys}"
 
         resp = aws_environment_4h.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_GLOBAL)
         assert "Contents" not in resp, "Files were uploaded to the target S3 bucket when none were expected"
@@ -60,17 +59,15 @@ class TestProcess4hEndToEnd:
 
         lambda_handler(_kafka_event(OPER_ENS_4H), None)
 
-        item = aws_environment_4h.table.get_item(Key={
-            "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
-            "ObjectKey": f"{OPER_PREFIX}/{OPER_ENS_4H}",
-        }).get("Item")
+        item = aws_environment_4h.table.get_item(
+            Key={
+                "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
+                "ObjectKey": f"{OPER_PREFIX}/{OPER_ENS_4H}",
+            }
+        ).get("Item")
         assert item is not None, "4h DynamoDB item not found"
-        assert item["Status_1h"] == "PROCESSED", (
-            f"Expected Status=PROCESSED for the 4h item, got: {item['Status_1h']}"
-        )
-        assert item["Status_3h"] == "N/A", (
-            f"Expected Status=N/A for the 4h item, got: {item['Status_3h']}"
-        )
+        assert item["Status_1h"] == "PROCESSED", f"Expected Status=PROCESSED for the 4h item, got: {item['Status_1h']}"
+        assert item["Status_3h"] == "N/A", f"Expected Status=N/A for the 4h item, got: {item['Status_3h']}"
 
     def test_prerequisite_items_remain_pending(self, aws_environment_4h):
         """The step-0 and step-3 DB entries are not touched – they stay PENDING."""
@@ -79,17 +76,15 @@ class TestProcess4hEndToEnd:
         lambda_handler(_kafka_event(OPER_ENS_4H), None)
 
         for filename, step in [(OPER_DA_0H, 0), (OPER_ENS_0H, 0), (OPER_ENS_3H, 3)]:
-            item = aws_environment_4h.table.get_item(Key={
-                "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
-                "ObjectKey": f"{OPER_PREFIX}/{filename}",
-            }).get("Item")
+            item = aws_environment_4h.table.get_item(
+                Key={
+                    "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
+                    "ObjectKey": f"{OPER_PREFIX}/{filename}",
+                }
+            ).get("Item")
             assert item is not None, f"Item for {filename} not found in DynamoDB"
-            assert item["Status_1h"] == "PENDING", (
-                f"{filename} should still be PENDING but got: {item['Status_1h']}"
-            )
-            assert item["Status_3h"] == "PENDING", (
-                f"{filename} should still be PENDING but got: {item['Status_3h']}"
-            )
+            assert item["Status_1h"] == "PENDING", f"{filename} should still be PENDING but got: {item['Status_1h']}"
+            assert item["Status_3h"] == "PENDING", f"{filename} should still be PENDING but got: {item['Status_3h']}"
 
 
 class TestProcess3hEndToEnd:
@@ -105,15 +100,11 @@ class TestProcess3hEndToEnd:
 
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket (europe)"
         keys = [obj["Key"] for obj in resp["Contents"]]
-        assert keys == ["dispf2026040803"], (
-            f"Expected exactly one dispf output file for step 3, got: {keys}"
-        )
+        assert keys == ["dispf2026040803"], f"Expected exactly one dispf output file for step 3, got: {keys}"
         resp = aws_environment_3h.s3.list_objects_v2(Bucket=OPER_TARGET_BUCKET_GLOBAL)
         assert "Contents" in resp, "No files were uploaded to the target S3 bucket (global)"
         keys = [obj["Key"] for obj in resp["Contents"]]
-        assert keys == ["dispf2026040803"], (
-            f"Expected exactly one dispf output file for step 3, got: {keys}"
-        )
+        assert keys == ["dispf2026040803"], f"Expected exactly one dispf output file for step 3, got: {keys}"
 
     def test_3h_item_marked_processed_in_dynamodb(self, aws_environment_3h):
         """DynamoDB Status for the 4h file is set to PROCESSED after lambda_handler."""
@@ -121,17 +112,15 @@ class TestProcess3hEndToEnd:
 
         lambda_handler(_kafka_event(OPER_ENS_3H), None)
 
-        item = aws_environment_3h.table.get_item(Key={
-            "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
-            "ObjectKey": f"{OPER_PREFIX}/{OPER_ENS_3H}",
-        }).get("Item")
+        item = aws_environment_3h.table.get_item(
+            Key={
+                "ReferenceTimePartitionKey": OPER_REF_TIME_TS,
+                "ObjectKey": f"{OPER_PREFIX}/{OPER_ENS_3H}",
+            }
+        ).get("Item")
         assert item is not None, "3h DynamoDB item not found"
-        assert item["Status_1h"] == "PROCESSED", (
-            f"Expected Status=PROCESSED for the 3h item, got: {item['Status_1h']}"
-        )
-        assert item["Status_3h"] == "PROCESSED", (
-            f"Expected Status=PROCESSED for the 3h item, got: {item['Status_3h']}"
-        )
+        assert item["Status_1h"] == "PROCESSED", f"Expected Status=PROCESSED for the 3h item, got: {item['Status_1h']}"
+        assert item["Status_3h"] == "PROCESSED", f"Expected Status=PROCESSED for the 3h item, got: {item['Status_3h']}"
 
 
 def test_non_3hourly_f2_steps_have_status_3h_na(mocked_aws, oper_dynamodb_table_3h):
@@ -147,7 +136,7 @@ def test_non_3hourly_f2_steps_have_status_3h_na(mocked_aws, oper_dynamodb_table_
         filename="s4y_f2_ifs-ens-cf_od_oper_fc_20260428T060000Z_20260428T110000Z_5h",
         domain=Feed.F2,
         forecast_ref_time=ref_time,
-        step=5
+        step=5,
     )
 
     write_product_index(event)
