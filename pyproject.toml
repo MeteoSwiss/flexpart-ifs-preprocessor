@@ -28,14 +28,11 @@ mchpy = "^4.0.4"
 aws-lambda-powertools = "^3.24.0"
 
 [tool.poetry.group.dev.dependencies]
-black = "^24.4.2"
-isort = "^5.13.2"
 pre-commit = "^3.7.1"
 codespell = "^2.3.0"
-flake8 = "^7.1.0"
 pytest-cov = "*"
 pylint = "*"
-yapf = "*"
+ruff = ">=0.15.20,<0.16.0"
 mypy = "*"
 sphinx = "*"
 importlib_resources = "*"
@@ -46,9 +43,8 @@ pytest = "^9.1.1"
 
 [tool.poetry.scripts]
 flexpart-ifs-preprocessor = "flexpart_ifs_preprocessor.main:cli"
-[tool.yapf]
-based_on_style = "pep8"
-column_limit = "120"
+[tool.ruff]
+line-length = 120
 
 [tool.pylint.master]
 disable = [

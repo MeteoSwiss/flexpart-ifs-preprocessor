@@ -2,6 +2,9 @@ class Globals {
     // set to true to abort the pipeline if the SonarQube quality gate fails
     static boolean qualityGateAbortPipeline = false
 
+    // set to false to disable the formatting quality gate
+    static boolean formattingQualityGateEnabled = true
+
     // Threshold for mypy issues before failing the build
     static int mypyIssueThreshold = 10
 
@@ -123,6 +126,15 @@ pipeline {
                 always {
                     junit keepLongStdio: true, testResults: 'test_reports/junit*.xml'
                 }
+            }
+        }
+
+        stage('Format check') {
+            when { expression { Globals.formattingQualityGateEnabled } }
+            steps {
+                sh """
+                    mchbuild -s semanticVersion=${Globals.semanticVersion} -s containerImageName=${Globals.containerImageName} verify.format
+                """
             }
         }
 
