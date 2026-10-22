@@ -28,8 +28,6 @@ mchpy = "^4.0.4"
 aws-lambda-powertools = "^3.24.0"
 
 [tool.poetry.group.dev.dependencies]
-pre-commit = "^3.7.1"
-codespell = "^2.3.0"
 pytest-cov = "*"
 pylint = "*"
 ruff = ">=0.15.20,<0.16.0"
