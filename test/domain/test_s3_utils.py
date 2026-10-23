@@ -70,7 +70,10 @@ class TestUploadToS3:
             head = s3.head_object(Bucket=TARGET_BUCKET, Key="output/file.grib")
             stored_meta = head["Metadata"]
             assert stored_meta == {
-                "type": "output/file.grib", "model": "IFS_Global", "date": "20260331", "step": "74",
+                "type": "output/file.grib",
+                "model": "IFS_Global",
+                "date": "20260331",
+                "step": "74",
             }
         finally:
             tmp_path.unlink(missing_ok=True)
