@@ -1,4 +1,4 @@
-FROM dockerhub.apps.cp.meteoswiss.ch/mch/python/builder:latest as builder
+FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.11:latest-poetry2 AS builder
 ARG VERSION
 LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
@@ -7,7 +7,7 @@ COPY poetry.lock pyproject.toml /src/app-root/
 WORKDIR /src/app-root
 
 RUN poetry export -o requirements.txt --without-hashes \
-    && poetry export --dev -o requirements_dev.txt --without-hashes
+    && poetry export --with dev -o requirements_dev.txt --without-hashes
 
 
 FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.11:latest-slim AS base
