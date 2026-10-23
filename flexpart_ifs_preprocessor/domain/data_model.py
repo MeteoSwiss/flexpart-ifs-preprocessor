@@ -8,11 +8,13 @@ from enum import Enum
 
 logger = logging.getLogger(__name__)
 
+
 class Stream(Enum):
-    S4Y = "S4Y" # devt
-    S5Y = "S5Y" # depl
-    S6Y = "S6Y" # prod
+    S4Y = "S4Y"  # devt
+    S5Y = "S5Y"  # depl
+    S6Y = "S6Y"  # prod
     UNKNOWN = "UNKNOWN"
+
 
 class Feed(Enum):
     F1 = "GLOBAL"
@@ -21,8 +23,15 @@ class Feed(Enum):
 
 
 class IFSForecastFile:
-
-    def __init__(self, object_key: str, filename: str, domain: Feed | None = None, forecast_ref_time: datetime | None = None, step: int | None = None, processed: bool = False) -> None:
+    def __init__(
+        self,
+        object_key: str,
+        filename: str,
+        domain: Feed | None = None,
+        forecast_ref_time: datetime | None = None,
+        step: int | None = None,
+        processed: bool = False,
+    ) -> None:
         self.object_key = object_key
         self.filename = filename
         self.forecast_ref_time: datetime = forecast_ref_time or self._extract_datetime()
@@ -30,13 +39,13 @@ class IFSForecastFile:
         self.domain = domain or self._extract_feed()
 
     def _extract_datetime(self) -> datetime:
-        match = re.search(r'(\d{8}T\d{6}Z)', self.filename)
+        match = re.search(r"(\d{8}T\d{6}Z)", self.filename)
         if not match:
             raise ValueError(f"No datetime found in string: {self.filename}")
         return datetime.strptime(match.group(1), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
 
     def _extract_lead_time(self) -> int:
-        match = re.search(r'_(\d+)([a-z]+)$', self.filename)
+        match = re.search(r"_(\d+)([a-z]+)$", self.filename)
         if not match:
             raise ValueError(f"No lead time found in string: {self.filename}")
         value, unit = match.group(1), match.group(2)
@@ -55,16 +64,15 @@ class IFSForecastFile:
 
 
 class InputDataAggregatorEvent:
-
     def __init__(self, data: dict) -> None:
 
-        self.object_key: str = data['objectStoreUuid']
-        self.filename: str = data['fileName']
+        self.object_key: str = data["objectStoreUuid"]
+        self.filename: str = data["fileName"]
         self.stream = self._extract_stream()
         self.feed = self._extract_feed()
 
     def _extract_stream(self) -> Stream:
-        match = re.search(r'(S[456]Y)', self.filename.upper())
+        match = re.search(r"(S[456]Y)", self.filename.upper())
         if not match:
             return Stream.UNKNOWN
         return Stream(match.group(1))

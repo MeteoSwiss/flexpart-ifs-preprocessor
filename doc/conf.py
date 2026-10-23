@@ -32,7 +32,7 @@ html_theme_options = {
         "image_dark": "_static/app-icon_meteoswiss_rounded_rgb.png",
     },
     "footer_start": ["version", "last-updated", "copyright"],
-    "footer_end": ["theme-version", "sphinx-version"]
+    "footer_end": ["theme-version", "sphinx-version"],
 }
 
 # Disable left side navigation of specific pages, since they are empty

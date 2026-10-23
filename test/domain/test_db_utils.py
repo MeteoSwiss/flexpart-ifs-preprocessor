@@ -43,17 +43,19 @@ def _put_items(table, items: list[tuple[int, str]]) -> None:
         step_counts[step] = idx + 1
         prefix = "prefix" if idx == 0 else f"prefix{idx + 1}"
         filename = _F2_FILENAME_TEMPLATE.format(step=step)
-        table.put_item(Item={
-            "ReferenceTimePartitionKey": REF_TIME_KEY,
-            "ObjectKey": f"{prefix}/{filename}",
-            "ReferenceTime": str(FORECAST_REF_TIME),
-            "LeadTime": step,
-            "FileName": filename,
-            "Domain": "EUROPE",
-            "CreatedAt": 0,
-            "Status_1h": status,
-            "Status_3h": status
-        })
+        table.put_item(
+            Item={
+                "ReferenceTimePartitionKey": REF_TIME_KEY,
+                "ObjectKey": f"{prefix}/{filename}",
+                "ReferenceTime": str(FORECAST_REF_TIME),
+                "LeadTime": step,
+                "FileName": filename,
+                "Domain": "EUROPE",
+                "CreatedAt": 0,
+                "Status_1h": status,
+                "Status_3h": status,
+            }
+        )
 
 
 def _put_item(table, step: int, status: str = "PENDING") -> None:
@@ -61,21 +63,25 @@ def _put_item(table, step: int, status: str = "PENDING") -> None:
     _put_items(table, [(step, status)])
 
 
-def _put_domain_item(table, step: int, domain: Feed, status1: str = "PENDING", status3: str = "PENDING", prefix: str = "prefix") -> None:
+def _put_domain_item(
+    table, step: int, domain: Feed, status1: str = "PENDING", status3: str = "PENDING", prefix: str = "prefix"
+) -> None:
     """Insert a single item for the given domain using the appropriate filename template."""
     template = _F2_FILENAME_TEMPLATE if domain == Feed.F2 else _F1_FILENAME_TEMPLATE
     filename = template.format(step=step)
-    table.put_item(Item={
-        "ReferenceTimePartitionKey": REF_TIME_KEY,
-        "ObjectKey": f"{prefix}/{filename}",
-        "ReferenceTime": str(FORECAST_REF_TIME),
-        "LeadTime": step,
-        "FileName": filename,
-        "Domain": domain.value,
-        "CreatedAt": 0,
-        "Status_1h": status1,
-        "Status_3h": status3
-    })
+    table.put_item(
+        Item={
+            "ReferenceTimePartitionKey": REF_TIME_KEY,
+            "ObjectKey": f"{prefix}/{filename}",
+            "ReferenceTime": str(FORECAST_REF_TIME),
+            "LeadTime": step,
+            "FileName": filename,
+            "Domain": domain.value,
+            "CreatedAt": 0,
+            "Status_1h": status1,
+            "Status_3h": status3,
+        }
+    )
 
 
 @pytest.fixture
@@ -92,7 +98,6 @@ def ddb_table():
 
 
 class TestDynamodbItemToIFSForecastFile:
-
     def test_forecast_ref_time_roundtrip(self):
         filename = _F2_FILENAME_TEMPLATE.format(step=6)
         item = {
@@ -144,10 +149,7 @@ class TestWriteProductIndex:
 
         filename = _F2_FILENAME_TEMPLATE.format(step=6)
         f = IFSForecastFile(
-            object_key=f"prefix/{filename}",
-            filename=filename,
-            forecast_ref_time=FORECAST_REF_TIME,
-            step=6
+            object_key=f"prefix/{filename}", filename=filename, forecast_ref_time=FORECAST_REF_TIME, step=6
         )
 
         write_product_index(f)
@@ -167,6 +169,7 @@ class TestWriteProductIndex:
 # ---------------------------------------------------------------------------
 # get_steps_to_process
 # ---------------------------------------------------------------------------
+
 
 class TestGetStepsToProcess:
     """Tests for the DynamoDB query + business logic in get_steps_to_process."""
@@ -193,9 +196,7 @@ class TestGetStepsToProcess:
     def test_skips_pending_item_when_previous_step_missing(self, ddb_table):
 
         # Two step=0 files, but step=6 has no step=3 predecessor
-        items_to_process, zeros = self._run(
-            ddb_table, [(0, "PROCESSED"), (0, "PROCESSED"), (6, "PENDING")]
-        )
+        items_to_process, zeros = self._run(ddb_table, [(0, "PROCESSED"), (0, "PROCESSED"), (6, "PENDING")])
         assert items_to_process == []
 
     def test_returns_processable_step_with_predecessor(self, ddb_table):
@@ -228,21 +229,20 @@ class TestGetStepsToProcess:
         )
         assert items_to_process == []
 
-    @pytest.mark.parametrize("pending_steps", [
-        [6],
-        [6, 9],
-        [6, 9, 12],
-    ])
+    @pytest.mark.parametrize(
+        "pending_steps",
+        [
+            [6],
+            [6, 9],
+            [6, 9, 12],
+        ],
+    )
     def test_multiple_pending_steps_all_queued(self, pending_steps, ddb_table):
-
 
         # Build a complete chain: 0, 3, 6, 9, ... all PROCESSED except the pending ones
         max_step = max(pending_steps)
         all_steps = list(range(0, max_step + 3, 3))
-        statuses = [
-            (s, "PENDING" if s in pending_steps else "PROCESSED")
-            for s in all_steps
-        ]
+        statuses = [(s, "PENDING" if s in pending_steps else "PROCESSED") for s in all_steps]
         # Add second step=0 (required by business logic)
         statuses.append((0, "PROCESSED"))
         items_to_process, _ = self._run(ddb_table, statuses)
@@ -264,9 +264,7 @@ class TestGetStepsToProcess:
 
         items_to_process, _ = get_steps_to_process(FORECAST_REF_TIME, Feed.F2)
 
-        assert items_to_process == [], (
-            "step=6 should not be queued because its F2 predecessor (step=3) is absent"
-        )
+        assert items_to_process == [], "step=6 should not be queued because its F2 predecessor (step=3) is absent"
 
     def test_only_returns_items_for_requested_domain(self, ddb_table):
         """Results must contain only items belonging to the requested domain.

@@ -1,12 +1,12 @@
-""" Initializations """
+"""Initializations"""
+
 import os
 
 from mchpy.audit import logger
 from flexpart_ifs_preprocessor.config.settings import JobSettings
 
 CONFIG = JobSettings(
-    settings_file_names='settings.yaml',
-    settings_dirname=os.path.join(os.path.dirname(__file__), 'config')
+    settings_file_names="settings.yaml", settings_dirname=os.path.join(os.path.dirname(__file__), "config")
 )
 
 # Configure logger

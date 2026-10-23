@@ -67,10 +67,7 @@ _VALID_FILENAMES = [
 class TestIFSForecastFileParsing:
     """Tests for IFSForecastFile._extract_datetime, _extract_lead_time, _extract_feed."""
 
-    @pytest.mark.parametrize(
-        "filename, expected_feed, expected_ref_time, expected_step",
-        _VALID_FILENAMES
-    )
+    @pytest.mark.parametrize("filename, expected_feed, expected_ref_time, expected_step", _VALID_FILENAMES)
     def test_parsed_attributes(self, filename, expected_feed, expected_ref_time, expected_step):
         f = IFSForecastFile(object_key=_BASE_OBJECT_KEY, filename=filename)
         assert f.domain == expected_feed
@@ -80,6 +77,7 @@ class TestIFSForecastFileParsing:
     def test_decimal_step_is_coerced_to_int(self):
         """DynamoDB returns Decimal; the step constructor path must coerce to plain int."""
         from decimal import Decimal
+
         f = IFSForecastFile(
             object_key=_BASE_OBJECT_KEY,
             filename="s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h",
@@ -150,16 +148,19 @@ def _make_event(object_key: str, filename: str) -> InputDataAggregatorEvent:
 class TestInputDataAggregatorEventParsing:
     """Tests for stream and feed parsing from filenames."""
 
-    @pytest.mark.parametrize("filename, expected_stream, expected_feed", [
-        ("s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F2),
-        ("S4Y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F2),
-        ("s5y_f1_ifs-ens-cf_od_scda_fc_20260101T000000Z_20260102T000000Z_24h", Stream.S5Y, Feed.F1),
-        ("s6y_f1_ifs-ens-cf_od_scda_fc_20260101T000000Z_20260102T000000Z_24h", Stream.S6Y, Feed.F1),
-        ("s4y_F2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F2),
-        ("s4y_F1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F1),
-        ("s4y_f3_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.UNKNOWN),
-        ("unknown_stream_f2_fc_20260331T060000Z_20260403T080000Z_74h",         Stream.UNKNOWN, Feed.F2),
-    ])
+    @pytest.mark.parametrize(
+        "filename, expected_stream, expected_feed",
+        [
+            ("s4y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F2),
+            ("S4Y_f2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F2),
+            ("s5y_f1_ifs-ens-cf_od_scda_fc_20260101T000000Z_20260102T000000Z_24h", Stream.S5Y, Feed.F1),
+            ("s6y_f1_ifs-ens-cf_od_scda_fc_20260101T000000Z_20260102T000000Z_24h", Stream.S6Y, Feed.F1),
+            ("s4y_F2_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F2),
+            ("s4y_F1_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.F1),
+            ("s4y_f3_ifs-ens-cf_od_scda_fc_20260331T060000Z_20260403T080000Z_74h", Stream.S4Y, Feed.UNKNOWN),
+            ("unknown_stream_f2_fc_20260331T060000Z_20260403T080000Z_74h", Stream.UNKNOWN, Feed.F2),
+        ],
+    )
     def test_parsed_attributes(self, filename, expected_stream, expected_feed):
         ev = _make_event(_BASE_OBJECT_KEY, filename)
         assert ev.stream == expected_stream
