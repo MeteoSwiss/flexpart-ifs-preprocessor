@@ -46,7 +46,6 @@ def populated_source_bucket():
         yield s3
 
 
-
 @pytest.fixture()
 def s3_client_with_target_bucket():
     """Open a single mock_aws context, create the target bucket, yield (mock_context, s3_client)."""
@@ -122,8 +121,7 @@ class TestDownloadFile:
 
     def test_file_downloaded_to_target_dir(self, forecast_file, tmp_path):
         mock_s3 = self._make_mock_s3_client(tmp_path)
-        with patch("flexpart_ifs_preprocessor.domain.s3_utils.boto3.client",
-                   side_effect=self._make_mock_sts(mock_s3)):
+        with patch("flexpart_ifs_preprocessor.domain.s3_utils.boto3.client", side_effect=self._make_mock_sts(mock_s3)):
             download_file(forecast_file, tmp_path)
         assert (tmp_path / FILENAME).read_bytes() == DUMMY_CONTENT
 
@@ -132,8 +130,7 @@ class TestDownloadFile:
         existing = tmp_path / FILENAME
         existing.write_bytes(b"already here")
         mock_s3 = self._make_mock_s3_client(tmp_path)
-        with patch("flexpart_ifs_preprocessor.domain.s3_utils.boto3.client",
-                   side_effect=self._make_mock_sts(mock_s3)):
+        with patch("flexpart_ifs_preprocessor.domain.s3_utils.boto3.client", side_effect=self._make_mock_sts(mock_s3)):
             download_file(forecast_file, tmp_path)
         # download_file should not have been called on the S3 client
         mock_s3.download_file.assert_not_called()

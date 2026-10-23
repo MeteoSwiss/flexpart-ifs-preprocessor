@@ -33,6 +33,15 @@ default:
               extraArgs:
                 - -e
                 - BUILD_ID=${var.buildId}
+  - verify:
+      - format:
+          - pythonContainerRun:
+              imageName: ${var.containerImageName}-tester
+              imageTag: ${var.semanticVersion}
+              pullAlways: false
+              packageManager: ''
+              removeLocalImage: false
+              commands: ruff format --check || { echo "Format check failed. Run 'ruff format' to fix."; exit 1; }
   - test:
       - unit:
           - pythonContainerTest:
@@ -59,16 +68,12 @@ default:
           - containerPublishImage:
               imageName: ${var.containerImageName}
               imageTag: ${var.semanticVersion}
-      - docs:
-          - openshiftPublishDocs:
-              docSrc: doc/_build/
-              docType: python
   - clean:
       - images:
           cleanupImages:
             targets:
               - image://${var.containerImageName}:${var.semanticVersion}
-              - label://ch.meteoswiss.project:${var.project}-${var.semanticVersion}
+              - label://ch.meteoswiss.project=${var.project}-${var.semanticVersion}
 
 # Alternative setup for installing and testing the service locally using the system's Python environment.
 local:
@@ -78,8 +83,8 @@ local:
       - docs:
           - pythonLocalDocs:
       - format:
-          - pythonLocalFormat:
-              inPlace: true
+          - pythonLocalRun:
+              commands: ruff format
   - test:
       - unit:
           - pythonLocalTest:
