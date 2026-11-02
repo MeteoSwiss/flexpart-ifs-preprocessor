@@ -17,8 +17,6 @@ ENV VERSION=$VERSION
 
 COPY --from=builder /src/app-root/requirements.txt /src/app-root/requirements.txt
 
-RUN apt-get -yqq update && apt-get install -yqq wget libeccodes-dev
-
 WORKDIR /src/app-root
 
 RUN pip install -r requirements.txt --no-cache-dir --no-deps --root-user-action=ignore
