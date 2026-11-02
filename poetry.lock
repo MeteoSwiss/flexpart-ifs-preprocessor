@@ -4223,4 +4223,4 @@ reference = "meteoswiss"
 [metadata]
 lock-version = "2.1"
 python-versions = "~3.13"
-content-hash = "81d5c50fb4a1fd6561338945eb368e0fc55b4cfdf6fd4d36192c5028f59ac115"
+content-hash = "e6ddf6ec84e7a02fb73d48c9d1c5512d2fd007aa1e418e25d832e6c5651e69db"
