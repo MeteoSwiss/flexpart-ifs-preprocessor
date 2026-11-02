@@ -16,14 +16,14 @@ url = "https://service.meteoswiss.ch/nexus/repository/python-all/simple"
 priority = "primary"
 
 [tool.poetry.dependencies]
-python = "~3.12"
+python = "~3.13"
 click = "^8.5.0"
 boto3 = "^1.43.122"
 jinja2 = ">=3.1.1"
 numpy = "^2.5.4"
 xarray = ">=2023.4.1"
 eccodes = ">=1.7"
-flexprep = "^0.2.2"
+flexprep = "^0.2.3"
 mchpy = "^4.2.2"
 aws-lambda-powertools = "^3.38.0"
 
