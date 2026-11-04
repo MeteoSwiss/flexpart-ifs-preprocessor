@@ -40,8 +40,9 @@ LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
 RUN pip install awslambdaric --no-cache-dir
 
-# store EarthKit configs in /tmp to avoid Lambda permission issues
-ENV EARTHKIT_DATA_CONFIG_FILE="/tmp/.earthkit/earthkit_config.yaml"
+# Lambda's filesystem is read-only except /tmp. earthkit-data writes its settings to
+# ~/.earthkit_data/settings.yaml on import (path not configurable), so point HOME at /tmp.
+ENV HOME="/tmp"
 ENV EARTHKIT_DATA_USER_CACHE_DIRECTORY="/tmp/.earthkit/earthkit_data_cache"
 
 RUN mkdir -p /src/data && chown -R 1001:1001 /src/app-root/ /src/data
