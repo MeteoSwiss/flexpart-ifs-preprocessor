@@ -1,4 +1,4 @@
-FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.11:latest-poetry2 AS builder
+FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.13:latest-poetry2 AS builder
 ARG VERSION
 LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
@@ -10,14 +10,12 @@ RUN poetry export -o requirements.txt --without-hashes \
     && poetry export --with dev -o requirements_dev.txt --without-hashes
 
 
-FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.11:latest-slim AS base
+FROM dockerhub.apps.cp.meteoswiss.ch/mch/python-3.13:latest-slim AS base
 ARG VERSION
 LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 ENV VERSION=$VERSION
 
 COPY --from=builder /src/app-root/requirements.txt /src/app-root/requirements.txt
-
-RUN apt-get -yqq update && apt-get install -yqq wget libeccodes-dev
 
 WORKDIR /src/app-root
 
@@ -42,8 +40,9 @@ LABEL ch.meteoswiss.project=flexpart-ifs-preprocessor-${VERSION}
 
 RUN pip install awslambdaric --no-cache-dir
 
-# store EarthKit configs in /tmp to avoid Lambda permission issues
-ENV EARTHKIT_DATA_CONFIG_FILE="/tmp/.earthkit/earthkit_config.yaml"
+# Lambda's filesystem is read-only except /tmp. earthkit-data writes its settings to
+# ~/.earthkit_data/settings.yaml on import (path not configurable), so point HOME at /tmp.
+ENV HOME="/tmp"
 ENV EARTHKIT_DATA_USER_CACHE_DIRECTORY="/tmp/.earthkit/earthkit_data_cache"
 
 RUN mkdir -p /src/data && chown -R 1001:1001 /src/app-root/ /src/data
